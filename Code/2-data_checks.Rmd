@@ -1,0 +1,370 @@
+---
+title: "Check lens shape data"
+author: "Katie Thomas"
+date: '2022-03-08'
+output:
+  html_document:
+    code_fold: show
+    theme: flatly
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 17px;
+  }
+  
+</style>
+
+
+```{r setup, include = FALSE}
+
+# Markdown settings
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.height = 6, fig.width = 8, attr.output='style="max-height: 400px;"') 
+
+# Load packages
+library(ape)
+library(kableExtra)
+library(cowplot)
+library(tidyverse)
+```
+
+
+Here, we check various aspects of our lens shape data prior to testing our hypotheses. 
+
+# Import data
+
+```{r}
+# Load tidy data
+lens_data_tidy <- read.csv("../Data/Tidy/lens_data_tidy.csv", header = TRUE, na.strings=c("", "NA", " "))
+
+#Load species means by life stage
+species_stage_means <- read.csv("../Data/Tidy/species_stage_means.csv", header = TRUE, na.strings=c("", "NA", " "))
+```
+
+
+# Repeat measurements
+
+The following dataframe subsets the specimens and lenses that were measured multiple times independently in order to determine the precision of measurement techniques. 
+
+```{r subset to dataframe for repeat measures}
+
+lens_repeat <- lens_data_tidy %>%
+  filter(life_stage == "repeat" & specimen_id != "USNM299711")
+  
+```
+
+# Coefficient of variation
+
+The coefficient of variation (CV) is the ratio of the standard deviation to the mean. The higher the coefficient of variation, the greater the level of dispersion around the mean. Here, we compare the coefficients of variation for repeat measures within one specimen to the coefficients of variation across the full dataset. 
+
+``` {r calculating cv}
+
+lens_repeat %>%
+  group_by(specimen_id) %>%
+  summarise(coef.var.flat = (sd(flatness)/mean(flatness))*100,
+            coef.var.aniso = (sd(anisotropy)/mean(anisotropy))*100,
+            coef.var.spher = (sd(sphericity)/mean(sphericity))*100,
+            coef.var.elong = (sd(elongation)/mean(elongation))*100)
+
+# The coefficients of variation for all the measures are quite low < 10 %
+
+# CVs calculated for the entire dataset show much higer variation so it is okay to use this method 
+species_stage_means %>%
+  group_by()%>%
+  summarise(coef.var.flat = (sd(mean_flatness)/mean(mean_flatness))*100,
+            coef.var.aniso = (sd(mean_anisotropy)/mean(mean_anisotropy))*100,
+            coef.var.spher = (sd(mean_sphericity)/mean(mean_sphericity))*100,
+            coef.var.elong = (sd(mean_elongation)/mean(mean_elongation))*100)
+
+```
+
+# Left lens vs. right lens
+
+The following creates a dataframe with **one row per specimen**. Shape data for **each lens** are in **separate columns**. The dataframe is then split into two: one for left lenses and one for right lenses. These dataframes contain data for anurans only.
+
+```{r left-right-wide}
+
+# dataframe that averages by specimen
+LR_lens_data <- lens_data_tidy %>%
+  mutate(genus_species = as.factor(paste(genus, species, sep = "_"))) %>% # creates a genus_species column
+  filter(life_stage != "repeat" & specimen_id != "BMNH1906.8.30.62" & life_stage != "artificial") %>%
+  mutate_if(is.character, as.factor) %>% 
+  group_by(specimen_id, genus_species, lens, life_stage, adult_ecology, activity_period) %>%
+  summarise(mean_flatness = mean(flatness, na.rm = TRUE),
+            mean_anisotropy = mean(anisotropy, na.rm = TRUE),
+            mean_elongation = mean(elongation, na.rm = TRUE),
+            mean_sphericity = mean(sphericity, na.rm = TRUE),
+            mean_svl = mean(sv_length_mm, na.rm = TRUE),
+            n = n()) %>%
+  ungroup() 
+
+#subset left and right data  then merge left and right by specimen
+#arrange(LR_lens_data, specimen_id, genus_species, life_stage)
+
+L_lens_data <- filter(LR_lens_data, lens == "left")
+R_lens_data <- filter(LR_lens_data, lens == "right")
+
+LR_lens_data <- full_join(L_lens_data, R_lens_data, 
+                          by = c("specimen_id", "life_stage"),
+                          suffix = c(".left", ".right"))
+
+LR_lens_data<-as.data.frame(LR_lens_data)
+row.names(LR_lens_data)<-paste(LR_lens_data$specimen_id,row.names(LR_lens_data),sep="_")
+
+#remove any rows with missing left or right lens shape data
+LR_lens_data <- filter(LR_lens_data, mean_flatness.left > 0 & mean_anisotropy.left > 0 & mean_elongation.left > 0 & mean_sphericity.left > 0)
+LR_lens_data <- filter(LR_lens_data, mean_flatness.right > 0 & mean_anisotropy.right > 0 & mean_elongation.right > 0 & mean_sphericity.right > 0)
+
+```
+
+Next, we plot data for left lens against right lens for all 3D shape metrics
+
+```{r left vs right lens shape}
+
+# left v right for individual metrics
+
+#create plots
+flat_lr_plot <- ggplot(LR_lens_data, aes(y=mean_flatness.left, x=mean_flatness.right)) +
+  geom_point(alpha = 0.7) +
+  theme_classic() +
+  ylab("Left lens flatness") +
+  xlab("Right lens flatness") +
+  geom_smooth(method = "lm")
+
+anis_lr_plot <- ggplot(LR_lens_data, aes(y=mean_anisotropy.left, x=mean_anisotropy.right)) +
+  geom_point(alpha = 0.7) +
+  theme_classic() +
+  ylab("Left lens anisotropy") +
+  xlab("Right lens anisotropy") +
+  geom_smooth(method = "lm")
+  
+elong_lr_plot <- ggplot(LR_lens_data, aes(y=mean_elongation.left, x=mean_elongation.right)) +
+  geom_point(alpha = 0.7) +
+  theme_classic() +
+  ylab("Left lens elongation") +
+  xlab("Right lens elongation") +
+  geom_smooth(method = "lm")
+
+spher_lr_plot <- ggplot(LR_lens_data, aes(y=mean_sphericity.left, x=mean_sphericity.right)) +
+  geom_point(alpha = 0.7) +
+  theme_classic() +
+  ylab("Left lens sphericity") +
+  xlab("Right lens sphericity") +
+  geom_smooth(method = "lm")
+
+#make figure
+plot <- plot_grid(anis_lr_plot, flat_lr_plot, spher_lr_plot, elong_lr_plot,
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("A","B","C","D"), #panel labels for figure
+           hjust = -.1, #adjustment for panel labels
+           nrow = 2) #number of rows in grids
+
+#print figure
+plot
+```
+
+```{r, results="hide"}
+#export figure
+pdf(file = "../Outputs/Figures/Fig-supp-LR_lens_shape.pdf", width = 9,  height = 7)
+plot
+dev.off()
+```
+
+
+```{r}
+# linear models of left vs right values for each lens metric
+LR_flat<-lm(LR_lens_data$mean_flatness.left~LR_lens_data$mean_flatness.right)
+LR_anis<-lm(LR_lens_data$mean_anisotropy.left~LR_lens_data$mean_anisotropy.right)
+LR_elon<-lm(LR_lens_data$mean_elongation.left~LR_lens_data$mean_elongation.right)
+LR_sphe<-lm(LR_lens_data$mean_sphericity.left~LR_lens_data$mean_sphericity.right)
+
+#summary of each model
+summary(LR_flat)
+summary(LR_anis)
+summary(LR_elon)
+summary(LR_sphe)
+```
+
+We also examine model residuals from these regressions. 
+
+```{r}
+
+# naming the residuals of the models as specimen_id
+names(LR_flat$residuals)<-LR_lens_data$specimen_id
+names(LR_anis$residuals)<-LR_lens_data$specimen_id
+names(LR_elon$residuals)<-LR_lens_data$specimen_id
+names(LR_sphe$residuals)<-LR_lens_data$specimen_id
+
+#plot ordered residuals
+
+#pdf(file = "LeftVsRight_LensShape_OrderedLMResiduals_.pdf", width = 9,  height = 7)
+par(mfrow=c(2, 2))
+
+LR_flat$residuals <- sort(-(LR_flat$residuals))
+plot(LR_flat$residuals)
+abline(0,0, col="red")
+
+LR_anis$residuals <- sort(-(LR_anis$residuals))
+plot(LR_anis$residuals)
+abline(0,0, col="red")
+
+LR_elon$residuals <- sort(-(LR_elon$residuals))
+plot(LR_elon$residuals)
+abline(0,0, col="red")
+
+LR_sphe$residuals <- sort(-(LR_sphe$residuals))
+plot(LR_sphe$residuals)
+abline(0,0, col="red")
+#dev.off()
+
+#plot ordered residuals with specimen labels
+pdf(file = "../Outputs/LeftVsRight_LensShape_OrderedLMResiduals_Labeled_.pdf", width = 30,  height = 30)
+par(mfrow=c(2, 2))
+plot(LR_flat$residuals)
+text(LR_flat$residuals, label=names(LR_anis$residuals))
+plot(LR_anis$residuals)
+text(LR_anis$residuals, label=names(LR_anis$residual))
+plot(LR_elon$residuals)
+text(LR_elon$residuals, label=names(LR_elon$residual))
+plot(LR_sphe$residuals)
+text(LR_sphe$residuals, label=names(LR_sphe$residual))
+dev.off()
+
+# Start writing to an output file
+sink('../Outputs/LR_ShapeAssymetry_Outliers.txt')
+
+#check for outliers
+cat("\n\n LR_Flat_Outliers \n")
+boxplot.stats(LR_flat$residuals)$out  
+cat("\n\n LR_Anis_Outliers \n")
+boxplot.stats(LR_anis$residuals)$out  
+cat("\n\n LR_Elon_Outliers \n")
+boxplot.stats(LR_elon$residuals)$out 
+cat("\n\n LR_Sphe_Outliers \n")
+boxplot.stats(LR_sphe$residuals)$out  
+
+# Stop writing to the file
+sink()
+
+```
+
+# Tests for correlation between 3D shape metrics
+
+Correlation between all metrics. Flatness is excluded from further analyses to avoid multicollinearity because it is highly correlated with anisotropy 
+
+```{r correlation in lens metrics}
+
+#linear regressions and plots of pairs of shape metrics
+
+#flatness vs. anisotropy
+flat_anis <- ggplot(species_stage_means, aes(x = mean_anisotropy, y = mean_flatness, shape = life_stage)) +
+  scale_shape_manual(values=c(19,1), name = "Life stage") +
+  geom_point(alpha = 0.6) +
+  theme_classic() +
+  labs(x="Anisotropy", y="Flatness") +
+  theme(legend.position = "none")
+
+summary(lm(mean_flatness~mean_anisotropy, data = species_stage_means))
+
+
+#flatness vs. elongation 
+flat_elon <- ggplot(species_stage_means, aes(x = mean_elongation, y = mean_flatness, shape = life_stage)) +
+  scale_shape_manual(values=c(19,1), name = "Life stage") +
+  geom_point(alpha = 0.6) +
+  theme_classic() +
+  labs(x="Elongation", y="Flatness") +
+  theme(legend.position = "none")
+
+summary(lm(mean_flatness~mean_elongation, data = species_stage_means))
+
+
+#flatness vs. sphericity
+flat_sph <- ggplot(species_stage_means, aes(x = mean_sphericity, y = mean_flatness, shape = life_stage)) +
+  scale_shape_manual(values=c(19,1), name = "Life stage") +
+  geom_point(alpha = 0.6) +
+  theme_classic() +
+  labs(x="Sphericity", y="Flatness") +
+  theme(legend.position = "none")
+
+summary(lm(mean_flatness~mean_sphericity, data = species_stage_means))
+
+#elongation vs. anisotropy
+elong_anis <- ggplot(species_stage_means, aes(x = mean_anisotropy, y = mean_elongation, shape = life_stage)) +
+  scale_shape_manual(values=c(19,1), name = "Life stage") +
+  geom_point(alpha = 0.6) +
+  theme_classic() +
+  labs(x="Anisotropy", y="Elongation") +
+  theme(legend.position = "none")
+
+summary(lm(mean_elongation~mean_anisotropy, data = species_stage_means))
+
+
+#elongation vs. sphericity
+elong_sph <- ggplot(species_stage_means, aes(x = mean_sphericity, y = mean_elongation, shape = life_stage)) +
+  scale_shape_manual(values=c(19,1), name = "Life stage") +
+  geom_point(alpha = 0.6) +
+  theme_classic() +
+  labs(x="Sphericity", y="Elongation") +
+  theme(legend.position = "none")
+
+summary(lm(mean_elongation~mean_sphericity, data = species_stage_means))
+
+
+#sphericity vs. anisotropy
+sph_anis <- ggplot(species_stage_means, aes(x = mean_anisotropy, y = mean_sphericity, shape = life_stage)) +
+  scale_shape_manual(values=c(19,1), name = "Life stage") +
+  geom_point(alpha = 0.6) +
+  theme_classic() +
+  labs(x="Anisotropy", y="Sphericity") +
+  theme(legend.position = "none")
+
+summary(lm(mean_sphericity~mean_anisotropy, data = species_stage_means))
+
+#construct supplemental figure
+plots <- plot_grid(flat_anis, flat_elon, flat_sph, elong_anis, elong_sph, sph_anis,
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("A","B","C","D","E","F"), #panel labels for figure
+           hjust = -.1, #adjustment for panel labels
+           nrow = 3) #number of rows in grids
+
+#print figure
+plots
+
+#export figure
+pdf(file = "../Outputs/Figures/Fig-supp_shape_correlations.pdf", width = 10,  height = 12)
+plots
+dev.off()
+```
+
+# Tests for correlation between lens shape and body size
+
+We checked that among adults that we had body size (snout-vent length) data for, there was no correlation between body size and any of the 3D shape metrics, as this could influence our models and interpretations. 
+
+
+```{r snout-vent length and shape}
+
+#regressions of lens shape vs. SVL 
+summary(lm(mean_sphericity~mean_svl, data = species_stage_means))
+summary(lm(mean_anisotropy~mean_svl, data = species_stage_means))
+summary(lm(mean_flatness~mean_svl, data = species_stage_means))
+summary(lm(mean_elongation~mean_svl, data = species_stage_means))
+
+#plots of lens shape by body size
+par(mfrow=c(2, 2))
+plot(mean_sphericity~mean_svl, data = species_stage_means)
+plot(mean_anisotropy~mean_svl, data = species_stage_means)
+plot(mean_flatness~mean_svl, data = species_stage_means)
+plot(mean_elongation~mean_svl, data = species_stage_means)
+
+#plot of mean body size across adult habitats
+par(mfrow=c(1, 1))
+plot(mean_svl~as.factor(adult_ecology), data = species_stage_means)
+
+```
