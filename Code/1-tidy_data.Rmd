@@ -1,0 +1,280 @@
+---
+title: "Tidy and subset lens data"
+author: "Katie Thomas"
+date: '2022-03-08'
+output:
+  html_document:
+    code_fold: show
+    theme: flatly
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 17px;
+  }
+  
+</style>
+
+```{r setup, include = FALSE}
+
+# Markdown settings
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.height = 6, fig.width = 8, attr.output='style="max-height: 400px;"') 
+
+# Load packages
+library(ape)
+library(kableExtra)
+library(tidyverse)
+```
+
+# Raw data
+
+## Raw lens data
+
+The raw data file contains one row for **each lens** sampled. For most specimens, there are two rows of data: one for the right lens and one for the left lens. However, for a few specimens, we repeated measurements on the lenses independently to quantify error, and these are included as separate rows. The raw data file also includes measurements from four artificial objects created in Blender for reference measurements. These are all coded as life stage "artificial", and can be removed or extracted that way.
+
+```{r}
+# Load raw data
+lens_data <- read.csv("../Data/Raw/ct_lenses_MAR22.csv", header = TRUE, na.strings=c("", "NA", " "))
+```
+
+## Raw phylogeny
+
+The phylogeny data is the consensus tree from Jetz and Pyron (2019).
+
+```{r}
+#Import phylogeny from Jetz and Pyron 2019
+tree_orig <- read.tree(file = "../Data/Raw/amph_shl_new_Consensus_7238.tre") #reads tree
+```
+
+# Tidy lens data
+
+Here, we tidy up a few messy things. For activity period, cathemeral is changed to "both" to mirror the paper, empty ecological fields (or those termed "unknown") are changed to NA. Unused fields (e.g. alternate coding for adult habitat, lens measurements not analyzed, etc.) are removed. When we archive the data, we should download and include this tidied datasheet instead of the raw one. 
+
+```{r}
+lens_data_tidy <- lens_data %>%
+  #capitalize order
+  mutate(order = str_to_title(order)) %>%
+  #capitalize family
+  mutate(family = str_to_title(family)) %>%
+  #capitalize genus
+  mutate(genus = str_to_title(genus)) %>%
+  #change activity period from cathemeral to both
+  mutate(activity_period = recode(activity_period, "cathemeral" = "both")) %>%
+  #change unknown activity period to NA
+  mutate(activity_period = na_if(activity_period, "unknown")) %>%
+  #change unknown adult habitat to NA
+  mutate(adult_ecology = na_if(adult_ecology, "unknown")) %>%
+  #select only used columns of data
+  select(specimen_id, order, family, genus, species, life_stage, lens, flatness, anisotropy, elongation, sphericity, eye_diameter_mm, lens_diameter_mm, sv_length_mm, stain, scan_type, adult_ecology, ae_source, activity_period, ap_source, scan_source, scan_technician)
+
+#export tidy data
+write.csv(lens_data_tidy, file = "../Data/Tidy/lens_data_tidy.csv", row.names = FALSE)
+```
+
+
+# Subset lens data
+
+## Mean lens shape by specimen
+
+The following subset includes one row for **each specimen** measured. We created this subset by removing repeated measurements of the same lens, and then calculating the mean of the left and right lens for each specimen. This subset also includes artificial reference blender shapes. 
+
+```{r specimen-means}
+
+#Calculate mean lens parameters for each specimen
+specimen_means <- lens_data_tidy %>%
+  mutate(genus_species = as.factor(paste(genus, species, sep = "_"))) %>% # creates a genus_species column
+  filter(life_stage != "repeat") %>%
+  mutate_if(is.character, as.factor) %>% 
+  group_by(specimen_id, genus_species, family, life_stage, adult_ecology, activity_period, scan_source, stain) %>%
+  summarise(mean_flatness = mean(flatness, na.rm = TRUE),
+            mean_anisotropy = mean(anisotropy, na.rm = TRUE),
+            mean_elongation = mean(elongation, na.rm = TRUE),
+            mean_sphericity = mean(sphericity, na.rm = TRUE),
+            mean_svl = mean(sv_length_mm, na.rm = TRUE),
+            n = n()) %>%
+  ungroup() 
+
+#convert NaN values to NA 
+specimen_means[specimen_means == "NaN"] <- NA
+
+#export specimen means data
+write.csv(specimen_means, file = "../Data/Tidy/specimen_means.csv", row.names = FALSE)
+```
+
+## Summary data on specimens
+
+Here, we report summary data on specimen sampling (after removing the 4 artificial reference objects created in Blender). Note that the specimen ID "MS2_top" refers to both a tadpole and an adult specimen, and is a duplicated element (thus there is one less factor level for specimen ID than there are actual unique specimens).
+
+```{r}
+#remove artificial objects from dataset
+specimen_means2 <- specimen_means %>%
+  filter(life_stage != "artificial") %>%
+  droplevels()
+
+#save data on sampling
+n_specimen <- nrow(specimen_means2) #total number of specimens sampled
+n_adult_specimens <- nrow(specimen_means2 %>% filter(life_stage=="adult"))
+n_tad_specimens <- nrow(specimen_means2 %>% filter(life_stage=="tadpole"))
+n_family <- length(levels(specimen_means2$family))
+n_species <- length(levels(specimen_means2$genus_species))
+```
+
+Number of specimens sampled total: `r n_specimen`
+
+Number of adult specimens sampled: `r n_adult_specimens`
+
+Number of tadpole specimens sampled: `r n_tad_specimens`
+
+Number of families sampled: `r n_family`
+
+Number of species sampled: `r n_species`
+
+Number of specimens sampled by source: 
+
+```{r}
+#number of specimens by source
+specimen_means2 %>%
+  group_by(life_stage) %>%
+  count(scan_source)
+```
+
+Number of specimens sampled by staining:
+
+```{r}
+#number of specimens by source
+specimen_means2 %>%
+  group_by(life_stage) %>%
+  count(stain)
+```
+
+## Mean lens shape by species and life stage
+
+### Life stages in different rows
+
+The following creates a dataframe with **one row per life stage for a species**. Mean shape data for **tadpoles** and for **adults** are in separate rows and any duplicated life stages within species are averaged. This subset contains anurans only (no artificial reference shapes).
+
+```{r species-stage-means}
+
+species_stage_means <- specimen_means %>%
+  filter(life_stage != "artificial") %>%
+  group_by(genus_species, family, life_stage, adult_ecology, activity_period) %>%
+  summarise(mean_flatness = mean(mean_flatness, na.rm = TRUE),
+            mean_anisotropy = mean(mean_anisotropy, na.rm = TRUE),
+            mean_elongation = mean(mean_elongation, na.rm = TRUE),
+            mean_sphericity = mean(mean_sphericity, na.rm = TRUE),
+            mean_svl = mean(mean_svl, na.rm = TRUE),
+            n_specimens = n()) %>%
+    mutate(mean_svl = na_if(mean_svl, "NaN"))
+
+#add synonym and substitutions for phylogeny into dataframe (phylo_species column)
+species_stage_means$phylo_species <- as.character(species_stage_means$genus_species)
+species_stage_means[species_stage_means$phylo_species=="Hypsiboas_geographica", "phylo_species"] <- "Hypsiboas_geographicus"
+species_stage_means[species_stage_means$phylo_species=="Chiasmocleis_hudsoni", "phylo_species"] <- "Syncope_hudsoni"
+species_stage_means[species_stage_means$phylo_species=="Rhombophryne_nilevina", "phylo_species"] <- "Rhombophryne_alluaudi"
+
+#export species means by life stage
+write.csv(species_stage_means, file = "../Data/Tidy/species_stage_means.csv", row.names = FALSE)
+```
+
+### Life stages in different columns
+
+The following creates a dataframe with **one row per species**, with tadpole and adult data in different columns.
+
+```{r species_means-wide}
+
+#make separate dataframes for adults and tadpoles
+tads_mean <- filter(species_stage_means, life_stage == "tadpole") %>% droplevels()
+adults_mean <- filter(species_stage_means, life_stage == "adult") %>% droplevels()
+
+#merge tadpole and adult dataframes by species (all data)
+species_means <- full_join(tads_mean, adults_mean, 
+                           by = "genus_species", 
+                           suffix = c(".tads", ".adults")) %>%
+  rename(adult_ecology = adult_ecology.adults) %>%
+  rename(activity_period = activity_period.adults) %>%
+  mutate(family = ifelse(is.na(family.adults), as.character(family.tads), as.character(family.adults))) %>%
+  select(genus_species, family, mean_flatness.tads, mean_anisotropy.tads, mean_elongation.tads, mean_sphericity.tads, mean_svl.tads, n_specimens.tads, mean_flatness.adults, mean_anisotropy.adults, mean_elongation.adults, mean_sphericity.adults, mean_svl.adults, n_specimens.adults, adult_ecology, activity_period)
+
+#export species means
+write.csv(species_means, file = "../Data/Tidy/species_means.csv", row.names = FALSE)
+```
+
+## Subset with adult and tadpole matched data
+
+The following creates a dataframe with **one row per species**, with tadpole and adult data in different columns, and subsets to only species with both tadpole and adult sampling. 
+
+```{r}
+#merge only matched tadpole and adult data within species
+species_matched <- inner_join(tads_mean, adults_mean,by = c("genus_species", "family"), suffix = c(".tads", ".adults")) %>% 
+  droplevels() %>%
+  rename(adult_ecology = adult_ecology.adults) %>%
+  rename(activity_period = activity_period.adults) %>%
+  mutate(mean_svl.tads = na_if(mean_svl.tads, "NaN")) %>%
+  select(genus_species, family, mean_flatness.tads, mean_anisotropy.tads, mean_elongation.tads, mean_sphericity.tads, mean_svl.tads, n_specimens.tads, mean_flatness.adults, mean_anisotropy.adults, mean_elongation.adults, mean_sphericity.adults, mean_svl.adults, n_specimens.adults, adult_ecology, activity_period)
+
+#export tad/adult matched data
+write.csv(species_matched, file = "../Data/Tidy/species_matched.csv", row.names = FALSE)
+```
+
+## Sampling by life stage
+
+```{r}
+#sampling for adults and tadpoles
+n_tadpole_species <- length(levels(as.factor(tads_mean$genus_species)))
+n_adult_species <- length(levels(as.factor(adults_mean$genus_species)))
+n_matched_species <- length(levels(as.factor(species_matched$genus_species)))
+n_matched_families <- length(levels(as.factor(species_matched$family)))
+```
+
+**Species sampling by life stage:**
+
+Number of species with adult data: `r n_adult_species`
+
+Number of species with tadpole data: `r n_tadpole_species`
+
+Number of species with both tadpole and adult data (matched): `r n_matched_species`
+
+Number of families with tadpole/adult matched data: `r n_matched_families`
+
+
+## Species with eye size data
+
+This dataframe pulls out the specimens that we were able to get 2D eye size measurements for in Avizo. The mean eye measurements are calculated for each **specimen**. Then, since there were few/no tadpoles with data, the **adults** are subset out for further analyses. 
+
+```{r}
+
+#create dataframe for adult eye and lens subset
+adult_eye <- lens_data_tidy %>%
+  mutate(genus_species = as.factor(paste(genus, species, sep = "_"))) %>% 
+  mutate_if(is.character, as.factor) %>% 
+  filter(life_stage == "adult") %>%
+  #remove rows without eye size data
+  filter(!is.na(eye_diameter_mm)) %>% 
+  #remove rows without lens size data
+  filter(!is.na(lens_diameter_mm)) %>% 
+  group_by(genus_species, life_stage, adult_ecology, activity_period) %>%
+  summarise(mean.eye.diameter = mean(eye_diameter_mm, na.rm = TRUE),
+            mean.lens.diameter = mean(lens_diameter_mm, na.rm = TRUE),
+            n = n()) %>%
+  mutate(lens_relative_to_eye = mean.lens.diameter/mean.eye.diameter) %>%
+  droplevels()
+
+#add synonym and substitutions for phylogeny into dataframe (phylo_species column)
+adult_eye$phylo_species <- as.character(adult_eye$genus_species)
+adult_eye[adult_eye$phylo_species=="Hypsiboas_geographica", "phylo_species"] <- "Hypsiboas_geographicus"
+adult_eye[adult_eye$phylo_species=="Chiasmocleis_hudsoni", "phylo_species"] <- "Syncope_hudsoni"
+adult_eye[adult_eye$phylo_species=="Rhombophryne_nilevina", "phylo_species"] <- "Rhombophryne_alluaudi"
+
+#export eye and lens size dataset
+write.csv(adult_eye, file = "../Data/Tidy/adult_eye.csv", row.names = FALSE)
+```
+
+Species with 2D adult eye & lens size data:  `r nrow(adult_eye)`
+
+
+# Subset phylogeny
