@@ -27,6 +27,7 @@ knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.height 
 
 # Load packages
 library(ape)
+library(geiger)
 library(kableExtra)
 library(tidyverse)
 ```
@@ -264,12 +265,6 @@ adult_eye <- lens_data_tidy %>%
   mutate(lens_relative_to_eye = mean.lens.diameter/mean.eye.diameter) %>%
   droplevels()
 
-#add synonym and substitutions for phylogeny into dataframe (phylo_species column)
-adult_eye$phylo_species <- as.character(adult_eye$genus_species)
-adult_eye[adult_eye$phylo_species=="Hypsiboas_geographica", "phylo_species"] <- "Hypsiboas_geographicus"
-adult_eye[adult_eye$phylo_species=="Chiasmocleis_hudsoni", "phylo_species"] <- "Syncope_hudsoni"
-adult_eye[adult_eye$phylo_species=="Rhombophryne_nilevina", "phylo_species"] <- "Rhombophryne_alluaudi"
-
 #export eye and lens size dataset
 write.csv(adult_eye, file = "../Data/Tidy/adult_eye.csv", row.names = FALSE)
 ```
@@ -277,4 +272,65 @@ write.csv(adult_eye, file = "../Data/Tidy/adult_eye.csv", row.names = FALSE)
 Species with 2D adult eye & lens size data:  `r nrow(adult_eye)`
 
 
-# Subset phylogeny
+# Prune phylogeny to match species with data
+
+Here, we prune the phylogeny to the 122 species in our dataset, and then relabel the tip labels to match our names for the speices. The phylogeny we are using has two species that differ in name from the species in our dataset (synonyms), and one species that is not represented. Specifically, in the phylogeny we rreplace _Syncope_hudsoni_ with synonym _Chiasmocleis_hudsoni_, and replace _Rhombophryne_alluaudi_ with substitute _Rhombophryne_nilevina_. 
+
+
+```{r, fig.height=12, fig.width=5}
+
+#make new dataframe of species means
+tree_data <- species_means
+
+#add rownames to data
+rownames(tree_data) <- tree_data$genus_species
+
+#check whether names in tree and dataset match
+name.check(tree_orig, tree_data) -> overlap
+
+#species in data that aren't matching tree
+overlap$data_not_tree
+
+#make a new column for names that will match phylogeny
+tree_data <- tree_data %>%
+  mutate(phylo_species = as.character(genus_species))
+tree_data[tree_data$phylo_species=="Chiasmocleis_hudsoni", "phylo_species"] <- "Syncope_hudsoni"
+tree_data[tree_data$phylo_species=="Rhombophryne_nilevina", "phylo_species"] <- "Rhombophryne_alluaudi"
+
+#check again whether now species all match with phylogeny
+rownames(tree_data) <- tree_data$phylo_species
+name.check(tree_orig, tree_data) -> overlap
+overlap$data_not_tree
+
+#drop tips from tree that don't match the data
+tree.pruned <- drop.tip(tree_orig, overlap$tree_not_data)
+plot(tree.pruned, cex = 0.4)
+
+#create a dataframe with column 1 with all original phylo tip labels, and column 2 with corresponding desired tip labels
+subs <- tree_data[ , c("phylo_species", "genus_species")] %>%
+  ungroup() %>%
+  mutate(across(everything(), as.character))
+
+#make a new tree to manipulate
+tree.sub <- tree.pruned
+
+#rename tree tip labels to match the species names in our dataset
+tree.sub$tip.label <- subs[[2]][match(tree.sub$tip.label, subs[[1]])]
+
+#check that tree tip lables match data species lables
+setdiff(tree.sub$tip.label, tree_data$genus_species)
+
+#plot final pruned, relabeled tree
+plot.phylo(tree.sub, #phylogeny to plot
+           type = "phylogram", #how to visualize phylogeny
+           show.tip.label = TRUE, #whether to show tip labels/species names
+           cex = 1.0, #text size
+           no.margin = TRUE, 
+           use.edge.length = TRUE,
+           edge.width = 1.5, #thickness of phylogeny branches
+           label.offset = 0.1) #how far away from tips to put labels
+
+#export final tree
+write.nexus(tree.sub, file = "../Data/Tidy/lens_shape_tree.nex")
+
+```
