@@ -1,0 +1,1125 @@
+---
+title: "Lens shape and relative size by adult ecology"
+author: "Katie Thomas"
+date: '2022-03-15'
+output:
+  html_document:
+    code_fold: show
+    theme: flatly
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 17px;
+  }
+  
+</style>
+
+
+```{r setup, include = FALSE}
+
+# Markdown settings
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.height = 6, fig.width = 8, attr.output='style="max-height: 400px;"') 
+
+library(cowplot)
+library(tcltk)
+library(ape)
+library(phytools)
+library(geiger)
+library(stringr)
+library(kableExtra)
+library(plotly)
+library(RRPP)
+library(viridis)
+library(pca3d)
+library(gridExtra)
+library(geomorph)
+library(caper)
+library(tidyverse)
+```
+
+Here, we examine whether adult lens size (relative to eye size) or shape are correlated with adult ecology (habitat or activity period). We do this across all adults sampled with available data (n = 181 species, with n = 80 for eye size data)
+
+
+# Import data
+
+```{r}
+# Load tidy data
+phylo_pca_means <- read.csv("../Data/Tidy/phylo_pca_means.csv", header = TRUE, na.strings=c("", "NA", " "))
+
+# Load eye data subset
+adult_eye <- read.csv("../Data/Tidy/adult_eye.csv", header = TRUE, na.strings=c("", "NA", " "))
+
+#Load species means by life state
+species_stage_means <- read.csv("../Data/Tidy/species_stage_means.csv", header = TRUE, na.strings=c("", "NA", " "))
+
+#Load specimen means
+specimen_means <- read.csv("../Data/Tidy/specimen_means.csv", header = TRUE, na.strings=c("", "NA", " "))
+
+#Import phylogeny from Jetz and Pyron 2019
+tree.full <- read.nexus(file = "../Data/Tidy/lens_shape_tree.nex") 
+```
+
+Subset data by life stage
+
+```{r}
+#tadpole data
+tad_phylo_means <- filter(phylo_pca_means, mean_flatness.tads > 0)
+
+#adult data
+adult_phylo_means <- filter(phylo_pca_means, mean_flatness.adults > 0)
+```
+
+# Adult lens shape vs. adult ecology 
+
+## PGLS: Adult lens shape vs. ecology for each 3D shape metric
+
+Here, we run a series of PGLS regressions to test for associations between each 3D shape metric (anisotropy, elongation, and sphericity) and adult ecology (habitat and activity period). 
+
+### Habitat
+
+```{r}
+#pgls regressions testing for effect of adult habitat on each 3D shape metric (separately)
+
+#prep data and tree----
+
+#subset adults with habitat data
+adult_phylo_eco<-filter(adult_phylo_means, !is.na(adult_ecology))
+table(adult_phylo_eco$adult_ecology)
+
+#trim tree to adults with habitat data
+rownames(adult_phylo_eco)<-adult_phylo_eco$genus_species;
+name.check(tree.full,adult_phylo_eco)->overlap
+#overlap
+drop.tip(tree.full, overlap$tree_not_data) -> tree.adult.eco;
+#plot(tree.adult.eco)
+#check tree and data match
+name.check(tree.adult.eco, adult_phylo_eco)
+
+#Remove excess data from species not found in tree
+adult_phylo_eco<-adult_phylo_eco[ ! adult_phylo_eco$genus_species %in% overlap$data_not_tree, ]
+adult_phylo_eco[] <- lapply(adult_phylo_eco, function(x) if(is.factor(x)) factor(x) else x)
+adult_phylo_eco <-  adult_phylo_eco[tree.adult.eco$tip.label, ]
+
+#make comparative object
+adult.eco.comp <- comparative.data(phy=tree.adult.eco, data=adult_phylo_eco, names.col=genus_species, vcv=TRUE, na.omit=FALSE, warn.dropped=TRUE)
+```
+
+#### Anisotropy 
+
+Here we fit a model for anisotropy ~ habitat
+
+```{r}
+#pgls for anisotropy----
+
+#fit model
+eco.aniso.pgls <- pgls(mean_anisotropy.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(eco.aniso.pgls)
+par(mfrow = c(1, 1))
+
+#look at phy signal estmiate
+plot(pgls.profile(eco.aniso.pgls, which="lambda"))
+
+#view main effects
+anova(eco.aniso.pgls)
+
+#view coefficients
+summary(eco.aniso.pgls)
+```
+
+In this model the comparison state was aquatic species; to get pairwise comparisons for all groups we need to run this setting each group as the comparison state. 
+
+Fossorial as comparison state:
+
+```{r}
+#make fossorial base state
+adult.eco.comp$data$adult_ecology <- factor(adult.eco.comp$data$adult_ecology, levels = c("fossorial", "ground-dwelling", "scansorial", "semi-aquatic", "subfossorial","aquatic"))
+
+#fit model with fossorial comparison state
+eco.aniso.pgls2 <- pgls(mean_anisotropy.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(eco.aniso.pgls2)
+```
+
+Semiaquatic as comparison state:
+
+```{r}
+#make semiaquatic base state
+adult.eco.comp$data$adult_ecology <- factor(adult.eco.comp$data$adult_ecology, levels = c("semi-aquatic", "subfossorial","aquatic", "fossorial","ground-dwelling", "scansorial"))
+
+#fit model with fossorial comparison state
+eco.aniso.pgls2 <- pgls(mean_anisotropy.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(eco.aniso.pgls2)
+```
+
+Subfossorial as comparison state:
+
+```{r}
+#make subfossorial base state
+adult.eco.comp$data$adult_ecology <- factor(adult.eco.comp$data$adult_ecology, levels = c("subfossorial","aquatic", "fossorial","ground-dwelling", "scansorial","semi-aquatic"))
+
+#fit model with fossorial comparison state
+eco.aniso.pgls2 <- pgls(mean_anisotropy.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(eco.aniso.pgls2)
+```
+
+Ground-dwelling as comparison state:
+
+```{r}
+#make ground-dwelling base state
+adult.eco.comp$data$adult_ecology <- factor(adult.eco.comp$data$adult_ecology, levels = c("ground-dwelling", "scansorial","semi-aquatic","subfossorial","aquatic", "fossorial"))
+
+#fit model with fossorial comparison state
+eco.aniso.pgls2 <- pgls(mean_anisotropy.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(eco.aniso.pgls2)
+```
+
+#### Sphericity
+
+Here we fit a model for sphericity ~ habitat
+
+```{r}
+
+#pgls for sphericity----
+
+#make aquatic base state
+adult.eco.comp$data$adult_ecology <- factor(adult.eco.comp$data$adult_ecology, levels = c("aquatic", "fossorial","semi-aquatic","subfossorial","ground-dwelling", "scansorial"))
+
+#fit model
+eco.sph.pgls <- pgls(mean_sphericity.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(eco.sph.pgls)
+par(mfrow = c(1, 1))
+
+#plot likelihood profile of lambda
+plot(pgls.profile(eco.sph.pgls, which="lambda"))
+
+#view main effects
+anova(eco.sph.pgls)
+
+#view coefficients
+summary(eco.sph.pgls)
+```
+
+In this model the comparison state was aquatic species; to get pairwise comparisons for all groups we need to run this setting each group as the comparison state. 
+
+Fossorial as comparison state:
+
+```{r}
+
+#make fossorial base state
+adult.eco.comp$data$adult_ecology <- factor(adult.eco.comp$data$adult_ecology, levels = c("fossorial","semi-aquatic","subfossorial","ground-dwelling", "scansorial","aquatic"))
+
+#fit model
+eco.sph.pgls <- pgls(mean_sphericity.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(eco.sph.pgls)
+```
+
+Semiaquatic as comparison state:
+
+```{r}
+
+#make semiaquatic base state
+adult.eco.comp$data$adult_ecology <- factor(adult.eco.comp$data$adult_ecology, levels = c("semi-aquatic","subfossorial","ground-dwelling", "scansorial","aquatic", "fossorial"))
+
+#fit model
+eco.sph.pgls <- pgls(mean_sphericity.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(eco.sph.pgls)
+```
+
+Subfossorial as comparison state:
+
+```{r}
+#make subfossorial base state
+adult.eco.comp$data$adult_ecology <- factor(adult.eco.comp$data$adult_ecology, levels = c("subfossorial","ground-dwelling", "scansorial", "aquatic", "fossorial","semi-aquatic"))
+
+#fit model
+eco.sph.pgls <- pgls(mean_sphericity.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(eco.sph.pgls)
+par(mfrow = c(1, 1))
+
+#plot likelihood profile of lambda
+plot(pgls.profile(eco.sph.pgls, which="lambda"))
+
+#view main effects
+anova(eco.sph.pgls)
+
+#view coefficients
+summary(eco.sph.pgls)
+```
+
+Ground-dwelling as comparison state:
+
+```{r}
+#make ground-dwelling base state
+adult.eco.comp$data$adult_ecology <- factor(adult.eco.comp$data$adult_ecology, levels = c("ground-dwelling", "scansorial", "aquatic", "fossorial","semi-aquatic","subfossorial"))
+
+#fit model
+eco.sph.pgls <- pgls(mean_sphericity.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(eco.sph.pgls)
+par(mfrow = c(1, 1))
+
+#plot likelihood profile of lambda
+plot(pgls.profile(eco.sph.pgls, which="lambda"))
+
+#view main effects
+anova(eco.sph.pgls)
+
+#view coefficients
+summary(eco.sph.pgls)
+```
+
+#### Elongation
+
+```{r}
+#pgls for elongation----
+
+#fit model
+eco.elong.pgls <- pgls(mean_elongation.adults ~ adult_ecology,
+                       data = adult.eco.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(eco.elong.pgls)
+par(mfrow = c(1, 1))
+
+#plot likelihood profile of lambda
+plot(pgls.profile(eco.elong.pgls, which="lambda"))
+
+#view main effects
+anova(eco.elong.pgls)
+
+#view coefficients
+summary(eco.elong.pgls)
+```
+
+### Activity period
+
+Here, we test for associations between activity period and lens shape among adult anurans. 
+
+```{r}
+#pgls regressions testing for effect of adult activity period on each 3D shape metric (separately)
+
+#prep data and tree----
+
+#subset adults with activity period data
+adult_phylo_activ <- filter(adult_phylo_means, !is.na(activity_period))
+table(adult_phylo_activ$activity_period)
+
+#trim tree to adults with activity period data
+rownames(adult_phylo_activ) <- adult_phylo_activ$genus_species;
+name.check(tree.full, adult_phylo_activ)->overlap
+#overlap
+drop.tip(tree.full, overlap$tree_not_data) -> tree.adult.activ;
+#plot(tree.adult.activ)
+
+#Remove excess data from species not found in tree
+adult_phylo_activ<-adult_phylo_activ[ ! adult_phylo_activ$genus_species %in% overlap$data_not_tree, ]
+adult_phylo_activ[] <- lapply(adult_phylo_activ, function(x) if(is.factor(x)) factor(x) else x)
+adult_phylo_activ <-  adult_phylo_activ[tree.adult.activ$tip.label, ]
+
+#make comparative object
+adult.act.comp <- comparative.data(phy=tree.adult.activ, data=adult_phylo_activ, names.col=genus_species, vcv=TRUE, na.omit=FALSE, warn.dropped=TRUE)
+
+```
+
+##### Anisotropy
+
+```{r}
+
+#pgls for anisotropy----
+
+#make nocturnal base state
+adult.act.comp$data$activity_period <- factor(adult.act.comp$data$activity_period, levels = c("nocturnal", "diurnal","both"))
+
+#fit model
+act.aniso.pgls <- pgls(mean_anisotropy.adults ~ activity_period,
+                       data = adult.act.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(act.aniso.pgls)
+par(mfrow = c(1, 1))
+
+#look at phy signal estmiate
+plot(pgls.profile(act.aniso.pgls, which="lambda"))
+
+#view main effects
+anova(act.aniso.pgls)
+
+#view coefficients
+summary(act.aniso.pgls)
+
+```
+
+#### Sphericity
+
+```{r}
+
+#pgls for sphericity----
+
+#fit model
+act.sph.pgls <- pgls(mean_sphericity.adults ~ activity_period,
+                       data = adult.act.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(act.sph.pgls)
+par(mfrow = c(1, 1))
+
+#look at phy signal estmiate
+plot(pgls.profile(act.aniso.pgls, which="lambda"))
+
+#view main effects
+anova(act.sph.pgls)
+
+#view coefficients
+summary(act.sph.pgls)
+```
+
+##### Elongation
+
+```{r}
+#pgls for elongation----
+
+#fit model
+act.elong.pgls <- pgls(mean_elongation.adults ~ activity_period,
+                       data = adult.act.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(act.elong.pgls)
+par(mfrow = c(1, 1))
+
+#look at phy signal estmiate
+plot(pgls.profile(act.aniso.pgls, which="lambda"))
+
+#view main effects
+anova(act.elong.pgls)
+
+#view coefficients
+summary(act.elong.pgls)
+```
+
+### Procrustes MANOVA: Adult lens shape vs. ecology
+
+#### Adult habitat
+
+```{r, eval=FALSE}
+
+#procD.pgls of adult lens shape (all 3 measures) by habitat
+procD<-procD.pgls(adult_phylo_eco[,c("mean_anisotropy.adults","mean_elongation.adults","mean_sphericity.adults")]~adult_ecology, tree.adult.eco, Cov = NULL, iter = 999,seed = NULL, int.first = FALSE, SS.type = NULL, effect.type = NULL, data = adult_phylo_eco, print.progress = TRUE)
+
+summary(procD)
+```
+
+#### Activity period
+
+```{r, eval=FALSE}
+#procD.pgls of adult eye shape (all 3 measures) by activity period
+
+procD<-procD.pgls(adult_phylo_activ[,c("mean_anisotropy.adults","mean_elongation.adults","mean_sphericity.adults")]~activity_period, tree.adult.activ, Cov = NULL, iter = 999,seed = NULL, int.first = FALSE, SS.type = NULL, effect.type = NULL, data = adult_phylo_activ, print.progress = TRUE)
+
+summary(procD)
+
+```
+
+### PGLS: Adult lens size vs. eye size + ecology
+
+Here, we test whether lens size (relative to eye size) varies across habitats or activity periods among adult anurans (n=81 species) using PGLS regressions in geomorph.  
+
+#### Habitat
+
+```{r}
+
+# Prep data and tree-----
+
+#view distribution of data
+table(adult_eye$adult_ecology)
+
+# Make tree-trimmed dataset for habitat analysis of lens size 
+adult_eye_eco <- filter(adult_eye, !is.na(adult_ecology)) %>% droplevels()
+adult_eye_eco[] <- lapply(adult_eye_eco, function(x) if(is.factor(x)) factor(x) else x)
+adult_eye_eco<-as.data.frame(adult_eye_eco)
+
+#trim tree to adult data
+rownames(adult_eye_eco) <- adult_eye_eco$genus_species;
+name.check(tree.full, adult_eye_eco) -> overlap
+#overlap
+drop.tip(tree.full, overlap$tree_not_data) -> tree_adult_eye_eco
+#plot(tree_adult_eye_eco)
+
+#Remove excess data from species not found in tree
+adult_eye_eco<-adult_eye_eco[ ! adult_eye_eco$genus_species %in% overlap$data_not_tree, ]
+adult_eye_eco[] <- lapply(adult_eye_eco, function(x) if(is.factor(x)) factor(x) else x)
+
+#sort data to match phylo order
+adult_eye_eco <-  adult_eye_eco[tree_adult_eye_eco$tip.label, ]
+
+#make comparative object
+hab.eye.comp <- comparative.data(phy = tree_adult_eye_eco, 
+                                 data = adult_eye_eco, 
+                                 names.col = genus_species, 
+                                 vcv=TRUE, 
+                                 na.omit = FALSE, 
+                                 warn.dropped = TRUE)
+
+#make aquatic comparison state
+hab.eye.comp$data$adult_ecology <- factor(hab.eye.comp$data$adult_ecology, levels = c("aquatic", "fossorial","semi-aquatic", "subfossorial", "ground-dwelling", "scansorial"))
+
+
+#run PGLS using caper-----
+
+# pgls in caper of lens ~ eye for plotting residuals---
+
+
+#fit pgls model for lens vs. eye size
+hab.eye.pgls <- pgls(mean.lens.diameter ~ mean.eye.diameter + adult_ecology,
+                       data = hab.eye.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(hab.eye.pgls)
+par(mfrow = c(1, 1))
+
+#look at phy signal estmiate
+plot(pgls.profile(hab.eye.pgls, which="lambda"))
+
+#view main effects
+anova(hab.eye.pgls)
+
+#view coefficients
+summary(hab.eye.pgls)
+
+```
+To get pairwise comparisons across all habitats, we have to run with different states as comparison state. 
+
+Fossorial as comparison state:
+
+```{r}
+#make fossorial comparison state
+hab.eye.comp$data$adult_ecology <- factor(hab.eye.comp$data$adult_ecology, levels = c("fossorial","semi-aquatic", "subfossorial", "ground-dwelling", "scansorial","aquatic"))
+
+#fit pgls model for lens vs. eye size
+hab.eye.pgls2 <- pgls(mean.lens.diameter ~ mean.eye.diameter + adult_ecology,
+                       data = hab.eye.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(hab.eye.pgls2)
+```
+
+Semiaquatic as comparison state:
+
+```{r}
+#make semiaquatic comparison state
+hab.eye.comp$data$adult_ecology <- factor(hab.eye.comp$data$adult_ecology, levels = c("semi-aquatic", "subfossorial", "ground-dwelling", "scansorial","aquatic","fossorial"))
+
+#fit pgls model for lens vs. eye size
+hab.eye.pgls2 <- pgls(mean.lens.diameter ~ mean.eye.diameter + adult_ecology,
+                       data = hab.eye.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(hab.eye.pgls2)
+```
+
+Subfossorial as comparison state:
+
+```{r}
+#make semiaquatic comparison state
+hab.eye.comp$data$adult_ecology <- factor(hab.eye.comp$data$adult_ecology, levels = c("subfossorial", "ground-dwelling", "scansorial","aquatic","fossorial","semi-aquatic"))
+
+#fit pgls model for lens vs. eye size
+hab.eye.pgls2 <- pgls(mean.lens.diameter ~ mean.eye.diameter + adult_ecology,
+                       data = hab.eye.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(hab.eye.pgls2)
+```
+
+Ground-dwelling as comparison state:
+
+```{r}
+#make ground-dwelling comparison state
+hab.eye.comp$data$adult_ecology <- factor(hab.eye.comp$data$adult_ecology, levels = c("ground-dwelling", "scansorial","aquatic","fossorial","semi-aquatic","subfossorial"))
+
+#fit pgls model for lens vs. eye size
+hab.eye.pgls2 <- pgls(mean.lens.diameter ~ mean.eye.diameter + adult_ecology,
+                       data = hab.eye.comp, 
+                       lambda="ML")
+
+#view coefficients
+summary(hab.eye.pgls2)
+```
+
+#### Activity period
+
+```{r}
+# Prep data and tree-----
+
+#view distribution of data
+table(adult_eye$activity_period)
+
+#Make tree-trimmed dataset for activity analysis of lens size 
+adult_eye_activ<-filter(adult_eye, !is.na(activity_period)) %>% droplevels()
+adult_eye_activ[] <- lapply(adult_eye_activ, function(x) if(is.factor(x)) factor(x) else x)
+table(adult_eye_activ$activity_period)
+adult_eye_activ<-as.data.frame(adult_eye_activ)
+
+#trim tree to adult data
+rownames(adult_eye_activ) <- adult_eye_activ$genus_species;
+name.check(tree.full, adult_eye_activ) -> overlap
+#overlap
+drop.tip(tree.full, overlap$tree_not_data)->tree.eye.activ;
+#plot(tree.eye.activ)
+
+#Remove excess data from species not found in tree
+adult_eye_activ<-adult_eye_activ[ ! adult_eye_activ$genus_species %in% overlap$data_not_tree, ]
+adult_eye_activ[] <- lapply(adult_eye_activ, function(x) if(is.factor(x)) factor(x) else x)
+adult_eye_activ <-  adult_eye_activ[tree.eye.activ$tip.label, ]
+
+#different factor order for contrasts
+adult_eye_activ$activity_period <- factor(adult_eye_activ$activity_period, levels = c("nocturnal", "diurnal", "both"))
+
+#make comparative object
+act.eye.comp <- comparative.data(phy=tree.eye.activ, data=adult_eye_activ, names.col=genus_species, vcv=TRUE, na.omit=FALSE, warn.dropped=TRUE)
+
+#run PGLS using caper-----
+
+# pgls in caper of lens ~ eye 
+
+#fit pgls model for lens vs. eye size
+act.eye.pgls <- pgls(mean.lens.diameter ~ mean.eye.diameter + activity_period,
+                       data = act.eye.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(act.eye.pgls)
+par(mfrow = c(1, 1))
+
+#look at phy signal estmiate
+plot(pgls.profile(act.eye.pgls, which="lambda"))
+
+#view main effects
+anova(act.eye.pgls)
+
+#view coefficients
+summary(act.eye.pgls)
+```
+Alternative activity period analyses with diurnal + neither grouped together to increase statistical power (both have small sample sizes compared to nocturnal). 
+
+```{r}
+
+#combine diurnal and both into one category
+adult_eye_activ <- adult_eye_activ %>%
+  mutate(act_bin = recode_factor(activity_period, "nocturnal" = "nocturnal", "diurnal" = "non-nocturnal", "both"="non-nocturnal"))
+
+#view distribution of data
+table(adult_eye_activ$act_bin)
+
+
+#run PGLS using caper-----
+
+# pgls in caper of lens ~ eye 
+
+#make comparative object
+act.eye.comp.bin <- comparative.data(phy=tree.eye.activ, data=adult_eye_activ, names.col=genus_species, vcv=TRUE, na.omit=FALSE, warn.dropped=TRUE)
+
+#fit pgls model for lens vs. eye size
+act.eye.pgls.bin <- pgls(mean.lens.diameter ~ mean.eye.diameter + act_bin,
+                       data = act.eye.comp.bin, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(act.eye.pgls.bin)
+par(mfrow = c(1, 1))
+
+#look at phy signal estmiate
+plot(pgls.profile(act.eye.pgls.bin, which="lambda"))
+
+#view main effects
+anova(act.eye.pgls.bin)
+
+#view coefficients
+summary(act.eye.pgls.bin)
+```
+
+# Figures
+
+```{r}
+#define a colorblind-friendly vector of colors for adult habitat
+col_hab <- c("aquatic" = "#0072B2",
+              "fossorial" = "#D55E00",
+              "ground-dwelling" = "#E69F00",
+              "scansorial" = "#009E73",
+              "semi-aquatic" = "#56B4E9",
+              "subfossorial" = "#CC79A7")
+
+#create vector of colors for activity period
+col_act <- c("both" = "deeppink3",
+             "diurnal" = "darkgoldenrod1", 
+             "nocturnal" = "blueviolet")
+
+#create dataframe of artifical lens shapes
+lens_sh <- specimen_means %>%
+  filter(life_stage=="artificial") %>%
+  add_row(specimen_id = "Perfect sphere", mean_anisotropy = 0, mean_flatness = 1, mean_sphericity = 1, mean_elongation = 1) %>%
+  filter(specimen_id != "Sphere")
+```
+
+
+## Figure 4: Adult lens shape by ecology
+
+Part 1: PCA centroids for adult lens shape vs ecology (habitat and activity period)
+
+```{r Figure 4ab}
+
+#Prep data
+
+#pull out adult data
+adults_mean <- filter(species_stage_means, life_stage == "adult") %>% droplevels()
+
+#filter species missing habitat data
+adult_phylo_eco<-filter(adults_mean, adult_ecology != "unknown")
+#table(adult_phylo_eco$adult_ecology)
+
+#add rownames 
+rownames(adult_phylo_eco)<-adult_phylo_eco$genus_species;
+adult_phylo_eco[] <- lapply(adult_phylo_eco, function(x) if(is.factor(x)) factor(x) else x)
+rownames(adult_phylo_eco)<-adult_phylo_eco$genus_species;
+
+#filter species missing activity period data
+adult_phylo_activ<-filter(adults_mean, activity_period != "unknown")
+#table(adult_phylo_activ$activity_period)
+
+#add rownames
+rownames(adult_phylo_activ)<-adult_phylo_activ$genus_species;
+adult_phylo_activ[] <- lapply(adult_phylo_activ, function(x) if(is.factor(x)) factor(x) else x)
+rownames(adult_phylo_activ)<-adult_phylo_activ$genus_species;
+
+#Habitat-----
+
+#PCA
+eco.pca <- prcomp(adult_phylo_eco[,c("mean_anisotropy","mean_elongation","mean_sphericity")], center = TRUE, scale. = TRUE)
+
+Eco <- as.factor(adult_phylo_eco$adult_ecology)
+names(Eco)<-row.names(adult_phylo_eco)
+EcoColr<-c("#0072B2","#D55E00","#E69F00","#009E73","#56B4E9","#CC79A7","white")
+names(EcoColr) <- levels(Eco)
+EcoColr<- EcoColr[match(Eco, names(EcoColr))] # col.gp must NOT be a factor
+
+ecoPlot<-pca2d(eco.pca$x, 
+               group= Eco, 
+               shape = 16, 
+               col =EcoColr, 
+               show.centroids = TRUE, 
+               radius = 1.5)
+
+legend("bottomright", ecoPlot$groups, col=ecoPlot$colors, pch=ecoPlot$pch, box.lty=0)
+
+# Activity Pattern ------
+
+#PCA
+activ.pca <- prcomp(adult_phylo_activ[,c("mean_anisotropy","mean_elongation","mean_sphericity")], center = TRUE, scale. = TRUE)
+
+activ <- as.factor(adult_phylo_activ$activity_period)
+names(activ)<-row.names(adult_phylo_activ)
+activColr<-c("#CD1076","#FFB90F","#8A2BE2")
+#activColr<-c(values=(magma(3, direction = -1)))
+names(activColr) <- levels(activ)
+activColr<- activColr[match(activ, names(activColr))] # col.gp must NOT be a factor
+
+activPlot<-pca2d(activ.pca$x, 
+                 group= activ, 
+                 shape = 16, 
+                 col =activColr, 
+                 show.centroids = TRUE, 
+                 radius =1.5)
+
+legend("bottomright", activPlot$groups, col=activPlot$colors, pch=activPlot$pch, box.lty=0)
+
+#export panels A & B-----
+
+#print graph
+pdf(file = "../Outputs/Figures/Fig4AB.pdf", width = 13,  height = 5, useDingbats=FALSE)
+par(mfrow=c(1,2))
+
+ecoPlot<-pca2d(eco.pca$x, group= Eco, shape = 16 , col =EcoColr, show.centroids = TRUE, radius =1.5)
+legend("bottomright", ecoPlot$groups, col=ecoPlot$colors, pch=ecoPlot$pch, box.lty=0)
+
+activPlot<-pca2d(activ.pca$x, group= activ, shape = 16 , col =activColr, show.centroids = TRUE, radius =1.5)
+legend("bottomright", c("diurnal", "nocturnal", "neither"), col=c("#FFB90F", "#8A2BE2", "#CD1076"), pch=16, box.lty=0)
+
+dev.off()
+```
+
+Part 2: Violin plots of adult lens shape across ecology (habitat and activity period)
+
+```{r Figure 4cdef}
+
+# Adult habitat ------
+
+#anisotropy
+anis_habs <- ggplot(adult_phylo_eco, aes(x=adult_ecology, y=mean_anisotropy, fill=adult_ecology)) + 
+  geom_violin(trim=FALSE, alpha = 0.7)+
+  scale_fill_manual(values = col_hab, name = "Adult habitat") +
+  labs(title=NULL,x="Habitat", y = "Anisotropy value")+
+  geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
+  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  theme_classic() +
+  ylim(c(0, 0.6)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_anisotropy, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
+ 
+#sphericity
+sph_habs <- ggplot(adult_phylo_eco, aes(x=adult_ecology, y=mean_sphericity, fill=adult_ecology)) + 
+  geom_violin(trim=FALSE, alpha = 0.7)+
+  scale_fill_manual(values = col_hab, name = "Adult habitat") +
+  labs(title=NULL,x="Habitat", y = "Sphericity value")+
+  geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
+  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  theme_classic() +
+  ylim(c(0.85, 1)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_sphericity, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
+ 
+
+#elongation
+elong_habs <- ggplot(adult_phylo_eco, aes(x=adult_ecology, y=mean_elongation, fill=adult_ecology)) + 
+  geom_violin(trim=FALSE, alpha = 0.7)+
+  scale_fill_manual(values = col_hab, name = "Adult habitat") +
+  labs(title=NULL,x="Habitat", y = "Elongation value")+
+  geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
+  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  theme_classic()+
+  ylim(c(0.8, 1)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_elongation, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
+
+# Adult activity period ------
+#anisotropy
+anis_act <- ggplot(adult_phylo_activ, aes(x=activity_period, y=mean_anisotropy, fill=activity_period)) + 
+  geom_violin(trim=FALSE, alpha = 0.5)+
+  scale_fill_manual(values = col_act, name = "Adult activity period", guide = "none") +
+  labs(title=NULL,x="Activity Period", y = "Anisotropy value")+
+  geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
+  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  theme_classic() +
+  ylim(c(0, 0.6)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_anisotropy, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
+ 
+#sphericity
+sph_act <- ggplot(adult_phylo_activ, aes(x=activity_period, y=mean_sphericity, fill=activity_period)) + 
+  geom_violin(trim=FALSE, alpha = 0.5)+
+  scale_fill_manual(values = col_act, name = "Adult activity period", guide = "none") +
+  labs(title=NULL,x="Activity Period", y = "Sphericity value")+
+  geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
+  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  theme_classic()+
+  ylim(c(0.85, 1)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_sphericity, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
+  
+
+#elongation
+elong_act <- ggplot(adult_phylo_activ, aes(x=activity_period, y=mean_elongation, fill=activity_period)) + 
+  geom_violin(trim=FALSE, alpha = 0.5)+
+  scale_fill_manual(values = col_act, name = "Adult activity period") +
+  labs(title=NULL,x="Activity Period", y = "Elongation value")+
+  geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
+  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  theme_classic() +
+  ylim(c(0.8, 1)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_sphericity, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
+ 
+
+# Construct main figure -----
+
+#make panels without lengends
+fig.c <- anis_habs + 
+  theme(legend.position = "none", 
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        text = element_text(size = 16)) +
+  ylab("Anisotropy") +
+  scale_x_discrete(breaks =c ("aquatic", "fossorial", "semi-aquatic", "subfossorial", "ground-dwelling", "scansorial"),
+                   limits = c("aquatic", "fossorial", "semi-aquatic", "subfossorial", "ground-dwelling", "scansorial"),
+                   labels = c("aq.", "foss.", "semiaq.", "subfoss.", "ground", "scans.")) +
+  geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic","subfossorial","ground-dwelling","scansorial"),"y" = c(0.5,0.5,0.5,0.5,0.5,0.5), "group" = c("a", "a", "b", "b","b","b")),
+            aes(y = y, label = group),
+            vjust = -2.2)
+ 
+ 
+fig.d <- anis_act + 
+  theme(legend.position = "none",
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        text = element_text(size = 16)) +
+  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
+                   limits = c("diurnal","nocturnal","both"),
+                   labels = c("diurnal", "nocturnal", "other"))
+
+fig.e <- sph_habs + 
+  theme(legend.position = "none",
+        text = element_text(size = 16)) +
+  xlab("Habit") +
+  ylab("Sphericity") +
+  scale_x_discrete(breaks = c("fossorial","aquatic","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
+                   limits = c("fossorial","aquatic","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
+                   labels = c("foss.","aq.","semiaq.","subfoss.", "ground", "scans.") ) +
+  geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic","subfossorial","ground-dwelling","scansorial"),"y" = c(1,1,1,1,1,1), "group" = c("a,b", "a,b,c", "a,b,c,d", "a,c,d","c,d","c,d")),
+            aes(y = y, label = group),
+            vjust = -.5)
+
+  
+fig.f <- sph_act + 
+  theme(legend.position = "none",
+        axis.title.y=element_blank(),
+        axis.text.y=element_blank(),
+        text = element_text(size = 16)) +
+  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
+                   limits = c("diurnal","nocturnal","both"),
+                   labels = c("diur.", "noct.", "neith.")) 
+
+leg <- get_legend(sph_act + theme(legend.position="bottom"))
+
+
+#make panels just with anisotropy and sphericity for habitat and activity period
+plots <- plot_grid(fig.c, fig.d, fig.e, fig.f,
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("C", "D", "E", "F"), #panel labels for figure
+           hjust = 0, #adjustment for panel labels
+           nrow = 2,
+           rel_widths = c(1.8,1))
+
+#add legend
+plots2 <- plot_grid(plots, leg,
+                    align = 'vh',
+                    nrow = 2,
+                    rel_heights = c(1, 0.1))
+
+#print figure
+plots2
+
+#export figure
+pdf(file = "../Outputs/Figures/Fig4cdef.pdf", width = 8,  height = 8)
+plots2
+dev.off()
+
+# Supplemental figure -----
+
+#make panels with elongation for habitat and activity period
+plots <- plot_grid(elong_habs + theme(legend.position = "none"), 
+                   elong_act + theme(legend.position = "none"),
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("A", "B"), #panel labels for figure
+           hjust = -.1, #adjustment for panel labels
+           nrow = 1,
+           rel_widths = c(1.8,1))
+
+#add legend
+plots2 <- plot_grid(plots, leg,
+                    align = 'vh',
+                    nrow = 2,
+                    rel_heights = c(1, 0.1))
+
+#print figure
+plots2
+
+#export figure
+pdf(file = "../Outputs/Figures/Fig-supp-adultelong.pdf", width = 10,  height = 4)
+plots2
+dev.off()
+```
+
+
+## Figure 5: Violins of relative lens size by microhabitat (Panel A) and activity pattern (Panel B)
+
+```{r Figure 5}
+
+#### Habitat ####
+
+# pgls in caper of lens ~ eye for plotting residuals---
+
+#fit pgls model for lens vs. eye size
+hab.lenseye.pgls <- pgls(mean.lens.diameter ~ mean.eye.diameter,
+                       data = hab.eye.comp, 
+                       lambda="ML")
+
+
+#extract pgls residuals 
+pglsres.habeye <- residuals(hab.lenseye.pgls) 
+
+#name residuals
+colnames(pglsres.habeye) <- "pglsres.habeye" 
+
+#merge residuals with original data by rowname
+adult_eye_eco2 <- merge(adult_eye_eco, pglsres.habeye, by = "row.names")
+
+#plot with caper pgls residuals
+gg_eco <- ggplot(adult_eye_eco2, aes(x=adult_ecology, y=pglsres.habeye, fill=adult_ecology)) + 
+  geom_violin(trim=FALSE, alpha = 0.7)+
+  scale_fill_manual(values = col_hab, name = "Adult habitat") +
+  labs(title=NULL,x="Habitat", y = "Residual Lens Size")+
+  geom_boxplot(width=0.15, fill="white")+
+  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  theme_classic()  +
+  ylim(c(-1.6, 1.2))
+
+#### Activity Pattern ####
+
+# pgls in caper of lens ~ eye for plotting residuals---
+
+#fit pgls model for lens vs. eye size
+act.lenseye.pgls <- pgls(mean.lens.diameter ~ mean.eye.diameter,
+                       data = act.eye.comp, 
+                       lambda="ML")
+
+#extract pgls residuals 
+pglsres.acteye <- residuals(act.lenseye.pgls) 
+
+#name residuals
+colnames(pglsres.acteye) <- "pglsres.acteye" 
+
+#merge residuals with original data by rowname
+adult_eye_activ2 <- merge(adult_eye_activ, pglsres.acteye, by = "row.names")
+
+#make plot of caper pgls resudals across activity periods
+gg_activ <- ggplot(adult_eye_activ2, aes(x=activity_period, y=pglsres.acteye, fill=activity_period)) + 
+  geom_violin(trim=FALSE, alpha = 0.5)+
+  scale_fill_manual(values = col_act, name = "Adult activity period") +
+  labs(title=NULL,x="Activity Period", y = "Residual Lens Size")+
+  geom_boxplot(width=0.15, fill="white")+
+  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  theme_classic() +
+  ylim(c(-1.6, 1.2))
+
+gg_activ 
+
+#Construct figure----
+
+fig.a <- gg_eco + 
+  theme(legend.position = "none", 
+        text = element_text(size = 16)) +
+  scale_x_discrete(breaks = c("aquatic","fossorial","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
+                   limits = c("aquatic","fossorial","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
+                   labels = c("aq.","foss.","semiaq.","subfoss.", "ground", "scans.") ) +
+  xlab("Habit")
+  
+  
+fig.b <- gg_activ + 
+  theme(legend.position = "none", 
+        text = element_text(size = 16)) +
+  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
+                 limits = c("diurnal","nocturnal","both"),
+                 labels = c("diur.", "noct.", "neith."))
+
+plots <- plot_grid(fig.a, fig.b,
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("A", "B"), #panel labels for figure
+           hjust = -.1, #adjustment for panel labels
+           nrow = 1,
+           rel_widths = c(1.8,1))
+
+plots
+
+#print graph
+pdf(file = "Figures/Fig5.pdf", width = 8,  height = 4)
+plots
+dev.off()
+
+```
+
+
