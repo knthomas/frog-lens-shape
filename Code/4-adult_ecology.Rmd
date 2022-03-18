@@ -778,7 +778,7 @@ EcoColr<- EcoColr[match(Eco, names(EcoColr))] # col.gp must NOT be a factor
 ecoPlot<-pca2d(eco.pca$x, 
                group= Eco, 
                shape = 16, 
-               col =EcoColr, 
+               col = EcoColr, 
                show.centroids = TRUE, 
                radius = 1.5)
 
@@ -832,7 +832,7 @@ anis_habs <- ggplot(adult_phylo_eco, aes(x=adult_ecology, y=mean_anisotropy, fil
   scale_fill_manual(values = col_hab, name = "Adult habitat") +
   labs(title=NULL,x="Habitat", y = "Anisotropy value")+
   geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
-  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic() +
   ylim(c(0, 0.6)) +
   geom_hline(data = lens_sh, aes(yintercept = mean_anisotropy, linetype = specimen_id)) +
@@ -847,7 +847,7 @@ sph_habs <- ggplot(adult_phylo_eco, aes(x=adult_ecology, y=mean_sphericity, fill
   scale_fill_manual(values = col_hab, name = "Adult habitat") +
   labs(title=NULL,x="Habitat", y = "Sphericity value")+
   geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
-  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic() +
   ylim(c(0.85, 1)) +
   geom_hline(data = lens_sh, aes(yintercept = mean_sphericity, linetype = specimen_id)) +
@@ -863,7 +863,7 @@ elong_habs <- ggplot(adult_phylo_eco, aes(x=adult_ecology, y=mean_elongation, fi
   scale_fill_manual(values = col_hab, name = "Adult habitat") +
   labs(title=NULL,x="Habitat", y = "Elongation value")+
   geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
-  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic()+
   ylim(c(0.8, 1)) +
   geom_hline(data = lens_sh, aes(yintercept = mean_elongation, linetype = specimen_id)) +
@@ -879,7 +879,7 @@ anis_act <- ggplot(adult_phylo_activ, aes(x=activity_period, y=mean_anisotropy, 
   scale_fill_manual(values = col_act, name = "Adult activity period", guide = "none") +
   labs(title=NULL,x="Activity Period", y = "Anisotropy value")+
   geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
-  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic() +
   ylim(c(0, 0.6)) +
   geom_hline(data = lens_sh, aes(yintercept = mean_anisotropy, linetype = specimen_id)) +
@@ -894,7 +894,7 @@ sph_act <- ggplot(adult_phylo_activ, aes(x=activity_period, y=mean_sphericity, f
   scale_fill_manual(values = col_act, name = "Adult activity period", guide = "none") +
   labs(title=NULL,x="Activity Period", y = "Sphericity value")+
   geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
-  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic()+
   ylim(c(0.85, 1)) +
   geom_hline(data = lens_sh, aes(yintercept = mean_sphericity, linetype = specimen_id)) +
@@ -910,7 +910,7 @@ elong_act <- ggplot(adult_phylo_activ, aes(x=activity_period, y=mean_elongation,
   scale_fill_manual(values = col_act, name = "Adult activity period") +
   labs(title=NULL,x="Activity Period", y = "Elongation value")+
   geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
-  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic() +
   ylim(c(0.8, 1)) +
   geom_hline(data = lens_sh, aes(yintercept = mean_sphericity, linetype = specimen_id)) +
@@ -929,9 +929,9 @@ fig.c <- anis_habs +
         axis.text.x=element_blank(),
         text = element_text(size = 16)) +
   ylab("Anisotropy") +
-  scale_x_discrete(breaks =c ("aquatic", "fossorial", "semi-aquatic", "subfossorial", "ground-dwelling", "scansorial"),
-                   limits = c("aquatic", "fossorial", "semi-aquatic", "subfossorial", "ground-dwelling", "scansorial"),
-                   labels = c("aq.", "foss.", "semiaq.", "subfoss.", "ground", "scans.")) +
+  scale_x_discrete(breaks =c ("fossorial", "aquatic", "semi-aquatic", "subfossorial", "ground-dwelling", "scansorial"),
+                   limits = c("fossorial", "aquatic", "semi-aquatic", "subfossorial", "ground-dwelling", "scansorial"),
+                   labels = c("foss.","aq.", "semiaq.", "subfoss.", "ground", "scans.")) +
   geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic","subfossorial","ground-dwelling","scansorial"),"y" = c(0.5,0.5,0.5,0.5,0.5,0.5), "group" = c("a", "a", "b", "b","b","b")),
             aes(y = y, label = group),
             vjust = -2.2)
@@ -956,9 +956,11 @@ fig.e <- sph_habs +
   scale_x_discrete(breaks = c("fossorial","aquatic","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
                    limits = c("fossorial","aquatic","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
                    labels = c("foss.","aq.","semiaq.","subfoss.", "ground", "scans.") ) +
-  geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic","subfossorial","ground-dwelling","scansorial"),"y" = c(1,1,1,1,1,1), "group" = c("a,b", "a,b,c", "a,b,c,d", "a,c,d","c,d","c,d")),
+  geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic","subfossorial","ground-dwelling","scansorial"),"y" = c(1,1,1,1,1,1), "group" = c("a,b", "a,b,c", "a,b,c,d", "b,c,d","c,d","c,d")),
             aes(y = y, label = group),
-            vjust = -.5)
+            vjust = -.5) +
+  theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
+  coord_cartesian(clip = "off")
 
   
 fig.f <- sph_act + 
@@ -968,7 +970,9 @@ fig.f <- sph_act +
         text = element_text(size = 16)) +
   scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
                    limits = c("diurnal","nocturnal","both"),
-                   labels = c("diur.", "noct.", "neith.")) 
+                   labels = c("diur.", "noct.", "neith.")) +
+  theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
+  coord_cartesian(clip = "off")
 
 leg <- get_legend(sph_act + theme(legend.position="bottom"))
 
@@ -1052,8 +1056,8 @@ gg_eco <- ggplot(adult_eye_eco2, aes(x=adult_ecology, y=pglsres.habeye, fill=adu
   geom_violin(trim=FALSE, alpha = 0.7)+
   scale_fill_manual(values = col_hab, name = "Adult habitat") +
   labs(title=NULL,x="Habitat", y = "Residual Lens Size")+
-  geom_boxplot(width=0.15, fill="white")+
-  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  geom_boxplot(width=0.15, fill="white", outlier.shape = NA)+
+  geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic()  +
   ylim(c(-1.6, 1.2))
 
@@ -1080,8 +1084,8 @@ gg_activ <- ggplot(adult_eye_activ2, aes(x=activity_period, y=pglsres.acteye, fi
   geom_violin(trim=FALSE, alpha = 0.5)+
   scale_fill_manual(values = col_act, name = "Adult activity period") +
   labs(title=NULL,x="Activity Period", y = "Residual Lens Size")+
-  geom_boxplot(width=0.15, fill="white")+
-  geom_jitter(shape = 19, size = 1, alpha = 0.7, position = position_jitter(0.1)) + 
+  geom_boxplot(width=0.15, fill="white", outlier.shape = NA)+
+  geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic() +
   ylim(c(-1.6, 1.2))
 
@@ -1092,10 +1096,15 @@ gg_activ
 fig.a <- gg_eco + 
   theme(legend.position = "none", 
         text = element_text(size = 16)) +
-  scale_x_discrete(breaks = c("aquatic","fossorial","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
-                   limits = c("aquatic","fossorial","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
-                   labels = c("aq.","foss.","semiaq.","subfoss.", "ground", "scans.") ) +
-  xlab("Habit")
+  scale_x_discrete(breaks = c("aquatic", "semi-aquatic", "fossorial", "subfossorial", "ground-dwelling", "scansorial"),
+                   limits = c("aquatic","semi-aquatic", "fossorial", "subfossorial","ground-dwelling","scansorial"),
+                   labels = c("aq.","semiaq.","foss.","subfoss.", "ground", "scans.") ) +
+  xlab("Habit") +
+  geom_text(data = data.frame("adult_ecology" = c("aquatic","semi-aquatic","fossorial","subfossorial","ground-dwelling","scansorial"),"y" = c(1,1,1,1,1,1), "group" = c("a", "a", "b", "b","b","b")),
+            aes(y = y, label = group),
+            vjust = -2.6) +
+  theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
+  coord_cartesian(clip = "off")
   
   
 fig.b <- gg_activ + 
@@ -1103,7 +1112,9 @@ fig.b <- gg_activ +
         text = element_text(size = 16)) +
   scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
                  limits = c("diurnal","nocturnal","both"),
-                 labels = c("diur.", "noct.", "neith."))
+                 labels = c("diur.", "noct.", "neith.")) +
+  theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
+  coord_cartesian(clip = "off")
 
 plots <- plot_grid(fig.a, fig.b,
            align = 'vh', #align horizontally and vertically
@@ -1113,10 +1124,11 @@ plots <- plot_grid(fig.a, fig.b,
            nrow = 1,
            rel_widths = c(1.8,1))
 
+#print plot
 plots
 
-#print graph
-pdf(file = "Figures/Fig5.pdf", width = 8,  height = 4)
+#export figure
+pdf(file = "../Outputs/Figures/Fig5.pdf", width = 8,  height = 4)
 plots
 dev.off()
 
