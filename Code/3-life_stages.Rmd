@@ -1,0 +1,812 @@
+---
+title: "Lens shape in tadpoles vs. adults"
+author: "Katie Thomas"
+date: '2022-03-11'
+output:
+  html_document:
+    code_fold: show
+    theme: flatly
+    toc: yes
+    toc_float: yes
+  pdf_document:
+    toc: yes
+---
+
+<style type="text/css">
+
+body{ /* Normal  */
+      font-size: 17px;
+  }
+  
+</style>
+
+
+```{r setup, include = FALSE}
+
+# Markdown settings
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE, fig.height = 6, fig.width = 8, attr.output='style="max-height: 400px;"') 
+
+# Load packages
+library(ape)
+library(kableExtra)
+library(gridExtra)
+library(cowplot)
+library(tidyverse)
+library(geomorph)
+library(caper)
+library(geiger)
+```
+
+
+Here, we test whether tadpole lens shape differs from adult lens shape
+
+# Import data
+
+```{r}
+# Load tidy data
+lens_data_tidy <- read.csv("../Data/Tidy/lens_data_tidy.csv", header = TRUE, na.strings=c("", "NA", " "))
+
+#Load species means by life stage
+species_stage_means <- read.csv("../Data/Tidy/species_stage_means.csv", header = TRUE, na.strings=c("", "NA", " "))
+
+#Load data for specimen means
+specimen_means <- read.csv("../Data/Tidy/specimen_means.csv", header = TRUE, na.strings=c("", "NA", " "))
+
+
+#Import phylogeny from Jetz and Pyron 2019
+tree.full <- read.nexus(file = "../Data/Tidy/lens_shape_tree.nex") 
+```
+
+## Q1 Lens shape of tadpoles vs. adults
+
+Here, we examine whether tadpole lens shape differs from adult lens shape across all species sampled (118 species with adult data, 48 species with tadpole data). These models do not include phylogenetic corrections. 
+
+### Principle component analysis
+
+Here, we run a PCA on species means by life stage for all tadpoles and adults sampled. Shape data included are anisotropy, elongation, and sphericity. 
+
+```{r PCA}
+
+#dimension conversion
+row.names(species_stage_means) <- paste(species_stage_means$life_stage, row.names(species_stage_means), sep="_") 
+species_stage_means$life_Stage <- NULL
+
+# running PCA on tadpoles and adults with anisotropy, elongation and sphericity values
+lens.pca <- prcomp(species_stage_means[,c("mean_anisotropy","mean_elongation","mean_sphericity")], center = TRUE, scale. = TRUE)
+
+# summary stats
+summary(lens.pca)
+
+str(lens.pca)
+
+# eigenvectors
+lens.pca$rotation
+
+# eigenvalues 
+(lens.pca$sdev)^2
+
+# plot directly
+plot(lens.pca$x[,1], lens.pca$x[,2])
+```
+
+
+### t-tests 
+
+Here, we use Welch's two-sample t tests to test whether tadpoles and adults exhibit different lens shapes for each of the three shape metrics examined (anisotropy, sphericity, and elongation).
+
+```{r independent t-test all tads and adults}
+
+# unequal variances therefore welch two sample t-test 
+
+#anisotropy
+t.test(mean_anisotropy~life_stage, data = species_stage_means)
+
+#sphericity
+t.test(mean_sphericity~life_stage, data = species_stage_means)
+
+#elongation
+t.test(mean_elongation~life_stage, data = species_stage_means)
+```
+
+### Procrustes MANOVA for shape variables
+
+Here, we use a multivariate approach to test whether the three shape metrics together (sphericity, anisotropy, elongation) are associated with life stage (tadpole vs. adult)
+
+```{r procD all metrics, eval = FALSE}
+
+fit <- summary(
+  procD.lm(species_stage_means[,c("mean_anisotropy","mean_elongation","mean_sphericity")]~life_stage,iter = 999,seed = NULL,RRPP = TRUE, SS.type = NULL, int.first = FALSE, Cov = NULL, data = species_stage_means, print.progress = TRUE)
+  ) 
+
+```
+
+## Q2 Differences in lens shape through ontogeny within species
+
+Here, we examine a subset of species (n = 44) that have matched tadpole and adult lens shape data to see how lens shape changes through ontogeny and whether this is driven by differences in adult habitat. 
+
+### Phylogenetic signal
+
+Here, we estimated phylogenetic signal in tadpole lens shape, in adult lens shape, and in the change in lens shape through ontogeny (difference between adults and tadpoles within species). For these analyses, we used the physignal function in the geomorph package, which estimates the multivariate version of the K-statistic (Kmult; Adams 2014) and allowed us to incorporate all three shape metrics (anisotropy, sphericity, elongation) simultaneously. 
+
+```{r phylogenetic signal, fig.height = 12, fig.width = 5}
+
+#Prepare data -----
+
+# PCA with all data tadpole Xs and adults Os
+pca_data <- cbind(as.data.frame(species_stage_means), as.data.frame(lens.pca$x))
+
+pca_means <- pca_data %>%
+  ungroup() 
+
+#make separate dataframes for adults and tadpoles
+phylo_tads <- filter(pca_means, life_stage == "tadpole")
+phylo_adults <- filter(pca_means, life_stage == "adult")
+
+#Merge dataset by genus species
+phylo_pca_means <- full_join(phylo_tads, phylo_adults, 
+                             by = "genus_species", 
+                             suffix = c(".tads", ".adults")) %>%
+  rename(adult_ecology = adult_ecology.adults) %>%
+  rename(activity_period = activity_period.adults) %>%
+  mutate(family = ifelse(is.na(family.adults), as.character(family.tads), as.character(family.adults))) %>%
+  dplyr::select(genus_species, family, mean_flatness.tads, mean_anisotropy.tads, mean_elongation.tads, mean_sphericity.tads, mean_svl.tads, PC1.tads, PC2.tads, PC3.tads, n_specimens.tads, mean_flatness.adults, mean_anisotropy.adults, mean_elongation.adults, mean_sphericity.adults, mean_svl.adults, PC1.adults, PC2.adults, PC3.adults, n_specimens.adults, adult_ecology, activity_period)
+
+#export data subset
+write.csv(phylo_pca_means, file = "../Data/Tidy/phylo_pca_means.csv", row.names = FALSE)
+
+#Build tadpole, adult, and matched species datasets-------
+
+#tadpole data
+tad_phylo_means <- filter(phylo_pca_means, mean_flatness.tads > 0)
+
+#adult data
+adult_phylo_means <- filter(phylo_pca_means, mean_flatness.adults > 0)
+
+#matched data (both)
+both_phylo_means <- filter(tad_phylo_means, mean_flatness.adults > 0)
+both_phylo_means$mean_flatness.diff<-both_phylo_means$mean_flatness.tads-both_phylo_means$mean_flatness.adults
+both_phylo_means$mean_anisotropy.diff<-both_phylo_means$mean_anisotropy.tads-both_phylo_means$mean_anisotropy.adults
+both_phylo_means$mean_elongation.diff<-both_phylo_means$mean_elongation.tads-both_phylo_means$mean_elongation.adults
+both_phylo_means$mean_sphericity.diff<-both_phylo_means$mean_sphericity.tads-both_phylo_means$mean_sphericity.adults
+
+# Build tadpole, adult, and matched data trees -----
+
+#check tree for all species
+rownames(phylo_pca_means) <- phylo_pca_means$genus_species;
+name.check(tree.full, phylo_pca_means)->overlap
+overlap
+#plot(tree.full)
+
+#trim tree to tad data
+rownames(tad_phylo_means) <- tad_phylo_means$genus_species
+name.check(tree.full, tad_phylo_means) -> overlap
+#overlap
+tree.tad <- drop.tip(tree.full, overlap$tree_not_data)
+#plot(tree.tad)
+
+#export tadpole species tree
+write.nexus(tree.tad, file = "../Data/Tidy/tree_tadpole.nex")
+
+#sort tad data to match tad tree
+rownames(tad_phylo_means) <- tad_phylo_means$genus_species
+tad_phylo_means <- tad_phylo_means[tree.tad$tip.label, ]
+
+#trim tree to adult data
+rownames(adult_phylo_means) <- adult_phylo_means$genus_species
+name.check(tree.full,adult_phylo_means)->overlap
+#overlap
+tree.adult <- drop.tip(tree.full,overlap$tree_not_data)
+#plot(tree.adult)
+
+#export adult species tree
+write.nexus(tree.adult, file = "../Data/Tidy/tree_adult.nex")
+
+#sort adult data to match adult tree
+rownames(adult_phylo_means) <- adult_phylo_means$genus_species
+adult_phylo_means <- adult_phylo_means[tree.adult$tip.label, ]
+
+#trim tree to species with matched tad and adult (both) data
+rownames(both_phylo_means) <- both_phylo_means$genus_species;
+name.check(tree.full, both_phylo_means) -> overlap
+#overlap
+drop.tip(tree.full, overlap$tree_not_data) -> tree.both;
+#plot(tree.both)
+
+#reorder matched data to follow matched tree
+rownames(both_phylo_means) <- both_phylo_means$genus_species;
+both_phylo_means <-  both_phylo_means[tree.both$tip.label, ]
+
+# Tests for phylogenetic signal ------
+
+#phylogenetic signal of tadpole lens shape (all species of tads, n=48)
+physignal(as.matrix(tad_phylo_means[,c("mean_anisotropy.tads","mean_elongation.tads","mean_sphericity.tads")]), tree.tad,iter = 999, seed = NULL)
+
+#phylogenetic signal of adult lens shape (all species of adults, n=118)
+physignal(as.matrix(adult_phylo_means[,c("mean_anisotropy.adults","mean_elongation.adults","mean_sphericity.adults")]), tree.adult, iter = 999, seed = NULL)
+
+#phylogenetic signal of the difference between tad and adult lens shape (n=44 species)
+physignal(as.matrix(both_phylo_means[,c("mean_anisotropy.diff","mean_elongation.diff","mean_sphericity.diff")]), tree.both, iter = 999, seed = NULL)
+
+#check phy signal for tadpoles in matched species only (n=44 species)
+physignal(as.matrix(both_phylo_means[,c("mean_anisotropy.tads","mean_elongation.tads","mean_sphericity.tads")]), tree.both, iter = 999, seed = NULL)
+
+#check phy signal for adults in matched species only (n=44 species)
+physignal(as.matrix(both_phylo_means[,c("mean_anisotropy.adults","mean_elongation.adults","mean_sphericity.adults")]), tree.both, iter = 999, seed = NULL)
+
+```
+
+### Difference between tadpole and adult lens shape vs ecology
+
+Here, we examine whether the change in lens shape through ontogeny (difference between tadpole and adult lens shape within species) differs across species that remain aquatic vs. transition to terrestrial environments. We do this first by examining each 3D lens metric individually, and then with a multivariate approach.
+
+#### PGLS 
+
+```{r}
+
+#pgls regressions testing for effect of adult habitat on each 3D shape metric (separately)
+
+#prep data/tree ----
+
+#add aquatic vs. terrestrial category
+both_phylo_means$env <- ifelse(both_phylo_means$adult_ecology=="aquatic", "aquatic", "terrestrial")
+
+#align data and phylogeny labels
+both_phylo_means <- both_phylo_means[tree.both$tip.label, ] 
+
+#label tree nodes
+geocapertree <- makeNodeLabel(tree.both, method = "number", prefix = "Node")
+
+#make comparative object
+geocaperdata <- comparative.data(phy=geocapertree, data=both_phylo_means, names.col=genus_species, vcv=TRUE, na.omit=FALSE, warn.dropped=TRUE)
+
+#pgls for anisotropy----
+
+#fit model
+aniso.pgls <- pgls(mean_anisotropy.diff~env, data=geocaperdata, lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(aniso.pgls)
+par(mfrow = c(1, 1))
+
+#view coefficients
+summary(aniso.pgls)
+
+#fit alternative model with lambda set to 1
+aniso.pgls2 <- pgls(mean_anisotropy.diff~env, data=geocaperdata, lambda=1)
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(aniso.pgls2)
+par(mfrow = c(1, 1))
+
+#view coefficients
+summary(aniso.pgls2)
+
+
+#pgls for sphericity----
+
+#fit model
+sphere.pgls <- pgls(mean_sphericity.diff~env, data=geocaperdata, lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(sphere.pgls)
+par(mfrow = c(1, 1))
+
+#view coefficients
+summary(sphere.pgls)
+
+#fit model with lambda set to 1
+sphere.pgls2 <- pgls(mean_sphericity.diff~env, data=geocaperdata, lambda=1)
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(sphere.pgls2)
+par(mfrow = c(1, 1))
+
+#view coefficients
+summary(sphere.pgls2)
+
+#fit model with lambda set to 0
+sphere.pgls3 <- pgls(mean_sphericity.diff~env, data=geocaperdata, lambda=0.00001)
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(sphere.pgls3)
+par(mfrow = c(1, 1))
+
+#view coefficients
+summary(sphere.pgls3)
+
+#pgls for elongation----
+
+#fit model
+elong.pgls<-pgls(mean_elongation.diff~env,data=geocaperdata, lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(elong.pgls)
+par(mfrow = c(1, 1))
+
+#view coefficients
+summary(elong.pgls)
+
+#fit model again with lambda set to 1
+elong.pgls2 <- pgls(mean_elongation.diff~env,data=geocaperdata, lambda=1)
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(elong.pgls2)
+par(mfrow = c(1, 1))
+
+#view coefficients
+summary(elong.pgls2)
+```
+
+#### Procrustes MANOVA
+
+```{r, eval = FALSE}
+
+#check adequate levels for testing
+table(both_phylo_means$env)
+
+#procD.pgls of lens shape differences in all 3 measures 
+procD <- geomorph::procD.pgls(both_phylo_means[,c("mean_anisotropy.diff","mean_elongation.diff","mean_sphericity.diff")] ~ env, tree.both, Cov = NULL, iter = 999,seed = NULL, int.first = FALSE, SS.type = NULL, effect.type = NULL, data = both_phylo_means, print.progress = TRUE)
+
+#model summary
+summary(procD)
+```
+
+# Figures
+
+```{r}
+#define a colorblind-friendly vector of colors for adult habitat
+col_hab <- c("aquatic" = "#0072B2",
+              "fossorial" = "#D55E00",
+              "ground-dwelling" = "#E69F00",
+              "scansorial" = "#009E73",
+              "semi-aquatic" = "#56B4E9",
+              "subfossorial" = "#CC79A7")
+
+#create vector of colors for activity period
+col_act <- c("both" = "deeppink3",
+             "diurnal" = "darkgoldenrod1", 
+             "nocturnal" = "blueviolet")
+
+#create dataframe of artifical lens shapes
+lens_sh <- specimen_means %>%
+  filter(life_stage=="artificial") %>%
+  add_row(specimen_id = "Perfect sphere", mean_anisotropy = 0, mean_flatness = 1, mean_sphericity = 1, mean_elongation = 1) %>%
+  filter(specimen_id != "Sphere")
+```
+
+## Figure 2 : Comparison of tadpole and adult lens shapes
+
+Panel A - PCA of tadpoles vs adults across all specimens, Panel B - Violin plots of species means for 3 shape metrics by tadpole and adult life stages
+
+```{r Figure 2, fig.width=6, fig.height=8}
+
+#### Panel A: tadpole and adult lens shape PCA ####
+
+#put PCA results into dataframe format
+df_pca <- as.data.frame(lens.pca$x) 
+
+#add a group column by breaking apart the rownames from the original dataframe
+df_pca$group <- sapply(strsplit(as.character(row.names(species_stage_means)), "_"),  "[", 1)
+
+#alternate attempt to get life stage to merge with df_pca
+## is pca dataframe in same order as species_stage_mean dataframe?? if not, this is not correct.
+df_pca$group <- species_stage_means$life_stage
+
+#extract loadings of the variables
+pca_loadings <- data.frame(Variables = rownames(lens.pca$rotation), lens.pca$rotation)
+
+#make ggplot of results  
+plot_pca <- ggplot(df_pca, 
+                   aes(x = PC1, y = PC2)) +
+  geom_segment(data = pca_loadings, aes(x = 0, y = 0, xend = (PC1*4), # adds arrows - eigenvectors
+                                        yend = (PC2*4)), arrow = arrow(length = unit(1/2, "picas")),
+               color = "black") +
+  #annotate("text", x = (pca_loadings$PC1*4), y = (pca_loadings$PC2*4), label = pca_loadings$Variables) + #adds eigenvector labels. Not using in this case because too hard to position
+  stat_ellipse(data = filter(df_pca, group == "tadpole"), aes(x=PC1, y=PC2), type = "norm", col="gray") + # adds elliptical cluster for tadpole group
+  stat_ellipse(data = filter(df_pca, group == "adult"), aes(x=PC1, y=PC2), type = "norm") + # adds elliptical cluster for adult group
+  geom_point(aes(fill=group), pch = 21, alpha = 0.8) + 
+  scale_fill_manual(values=c("black","white"), name = "Life stage") +
+  xlab("PC 1 (53%)") + 
+  ylab("PC 2 (33%)") +
+  theme_classic()+
+  theme(panel.grid = element_blank(), 
+        panel.border = element_blank(),
+        legend.position = "top",
+        plot.margin = margin(l = 15, unit = "pt"))
+
+plot_pca
+
+#note for the arrows, the one pointing left is for anisotropy, up is for flatness, to the right is for sphericity. 
+
+#### Panel B: violin of 3 shape metrics by tadpole and adult ####
+
+#make 3-panel plot for tad/adult shapes
+
+#put specimen data into long format for plotting
+value <- species_stage_means$mean_anisotropy
+stage <- species_stage_means$life_stage
+metric <- "anisotropy"
+shape1 <- data.frame(metric, value, stage)
+
+value <- species_stage_means$mean_sphericity
+stage <- species_stage_means$life_stage
+metric <- "sphericity"
+shape3 <- data.frame(metric, value, stage)
+
+value <- species_stage_means$mean_elongation
+stage <- species_stage_means$life_stage
+metric <- "elongation"
+shape4 <- data.frame(metric, value, stage)
+
+shape.final <- rbind(shape1, shape3, shape4)
+
+#anisotropy plot
+anis.plot <- shape.final %>%
+  filter(metric == "anisotropy") %>%
+  ggplot(aes(y = value, x = stage)) +
+  scale_fill_manual(values=c("black", "white")) +
+  geom_point(aes(fill = stage), pch = 21, alpha = 0.6, size = .7,  position=position_jitterdodge(dodge.width=1, jitter.width = 1)) +
+  geom_violin(alpha=0.1, trim = T, width = 1, position = position_dodge(1)) + 
+  geom_boxplot(width = 0.2, position = position_dodge(1), alpha=0.1, outlier.shape = NA) + #controls boxes
+  theme_classic()+
+  theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = 'none') + #controls background
+  xlab("") +
+  ylab("Anisotropy") +
+  ylim(c(0,0.5)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_anisotropy, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
+
+
+#sphericity plot
+spher.plot <- shape.final %>%
+  filter(metric == "sphericity") %>%
+ ggplot(aes(y = value, x = stage)) +
+  scale_fill_manual(values=c("black", "white"), guide = "none") +
+  geom_point(aes(fill = stage), pch = 21, alpha = 0.6, size = .7,  position=position_jitterdodge(dodge.width=1, jitter.width = 1)) +
+  geom_violin(alpha=0.1, trim = T, width = 1, position = position_dodge(1)) + 
+  geom_boxplot(width = 0.2, position = position_dodge(1), alpha=0.1) + 
+  theme_classic()+
+  theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = 'none') + 
+  xlab("") +
+  ylab("Sphericity") +
+  ylim(c(0.75,1)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_sphericity, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
+ 
+#elongation value
+elong.plot <- shape.final %>%
+  filter(metric == "elongation") %>%
+  ggplot(aes(y = value, x = stage)) +
+  scale_fill_manual(values=c("black", "white")) +
+  geom_point(aes(fill = stage), pch = 21, alpha = 0.6, size = .7,  position=position_jitterdodge(dodge.width=1, jitter.width = 1)) +
+  geom_violin(alpha=0.1, trim = T, width = 1, position = position_dodge(1)) + 
+  geom_boxplot(width = 0.2, position = position_dodge(1), alpha=0.1) + #controls boxes
+  theme_classic()+
+  theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = 'none') + #controls background
+  xlab("") +
+  ylab("Elongation") +
+  ylim(c(0.75,1)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_elongation, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dotdash","dotdash"),#added dotdash because elongation for both shapes identical, can't see that they are both plotted so adding a dotdash that combines them
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes") 
+
+# Construct figure -------
+
+#label pca panel
+plot_top <- plot_grid(plot_pca,
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("A"), #panel labels for figure
+           hjust = -.1, #adjustment for panel labels
+           nrow = 1) #number of rows in grids
+
+
+# arrange 3 shape panels together
+plots_bottom <- plot_grid(anis.plot, spher.plot, elong.plot,
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("B", "C", "D"), #panel labels for figure
+           hjust = -.1, #adjustment for panel labels
+           nrow = 1) #number of rows in grids
+
+#make legend
+leg <- get_legend(spher.plot + theme(legend.position="bottom"))
+
+#combine plots and legend
+plots <- plot_grid(plot_top, plots_bottom, leg,
+                   align = 'vh',
+                   axis = 'lb',
+                   nrow = 3,
+                   rel_heights = c(1, 0.9, 0.1))
+
+#show figure 
+plots
+
+#export figure
+pdf(file = "../Outputs/Figures/Fig2.pdf", width = 6,  height = 8)
+plots
+dev.off()
+```
+
+
+## Figure 3A : Phylogeny with PC scores. 
+
+Species names are coloured by microhabitat. Circles and dotted lines added in illustrator
+
+```{r Figure 3, fig.height = 12, fig.width = 6}
+
+# Extracting PC scores
+PC1_tad<-phylo_pca_means$PC1.tads
+names(PC1_tad)<-phylo_pca_means$genus_species
+PC1_tad<-PC1_tad[tree.full$tip.label]
+
+PC1_adult<-phylo_pca_means$PC1.adults
+names(PC1_adult)<-phylo_pca_means$genus_species
+PC1_adult<-PC1_adult[tree.full$tip.label]
+
+
+# Plot tree
+plot(tree.full, show.tip.label= T, font=3, cex=0.5, label.offset = 1.5, edge.width=3)
+segments(340 + (PC1_tad*40), 1:nrow(phylo_pca_means), 340 + (PC1_adult*10), 1:nrow(phylo_pca_means), col="grey90", lwd=5)
+segments(340 + (PC1_tad*40), 1:nrow(phylo_pca_means), 340 + (PC1_tad*40), 1:nrow(phylo_pca_means), col="grey", lwd=5)
+segments(340 + (PC1_adult*10), 1:nrow(phylo_pca_means), 340 + (PC1_adult*10), 1:nrow(phylo_pca_means), col="black", lwd=5)
+
+lastPP<-get("last_plot.phylo",env=.PlotPhyloEnv)
+
+SpEcology<-as.factor(phylo_pca_means$adult_ecology)
+SemiEcoColr<-c("#0072B2","#D55E00","#E69F00","#009E73","#56B4E9","#CC79A7","black")
+names(SemiEcoColr) <- levels(SpEcology)
+SemiEcoColr<- SemiEcoColr[match(SpEcology, names(SemiEcoColr))] # col.gp must NOT be a factor
+names(SemiEcoColr)<-phylo_pca_means$genus_species
+SemiEcoColr<-SemiEcoColr[tree.full$tip.label]
+
+#Print graph
+plot(tree.full, show.tip.label= F, font=3, cex=0.5, label.offset = 1.5, edge.width=3, x.lim=c(0,700))
+par(fg="black")
+tt<-gsub("_"," ",tree.full$tip.label)
+text(lastPP$xx[1:length(tt)],lastPP$yy[1:length(tt)], tt,cex=0.5,col=SemiEcoColr, pos=4, offset=0.1, font=3)
+segments(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), 550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="grey90", lwd=5)
+segments(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), 550 + (PC1_tad*50), 1:nrow(phylo_pca_means), col="grey", lwd=5)
+segments(550 + (PC1_adult*50), 1:nrow(phylo_pca_means), 550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="black", lwd=5)
+
+#Export figure
+pdf(file = "../Outputs/Figures/Fig3a.pdf", width = 6,  height = 12)
+plot(tree.full, show.tip.label= F, font=3, cex=0.5, label.offset = 1.5, edge.width=3, x.lim=c(0,700))
+par(fg="black")
+tt<-gsub("_"," ",tree.full$tip.label)
+text(lastPP$xx[1:length(tt)],lastPP$yy[1:length(tt)], tt,cex=0.5, col=SemiEcoColr, pos=4, offset=0.1, font=3)
+segments(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), 550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="grey90", lwd=5)
+segments(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), 550 + (PC1_tad*50), 1:nrow(phylo_pca_means), col="grey", lwd=5)
+segments(550 + (PC1_adult*50), 1:nrow(phylo_pca_means), 550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="black", lwd=5)
+dev.off()
+```
+
+## Figure 3BC & S4: Species with matched tadpole and adult lens shape data across adult habitats. 
+
+```{r Figure 4}
+
+# Prep data for tadpole and adult lens shape within species --- 
+
+#put data in long format
+
+#tadpole data
+tadData <- data.frame(species = both_phylo_means$genus_species,
+                      anisotropy = both_phylo_means$mean_anisotropy.tads,
+                      sphericity = both_phylo_means$mean_sphericity.tads,
+                      elongation = both_phylo_means$mean_elongation.tads,
+                      eco = both_phylo_means$adult_ecology,
+                      stage = "tadpole")
+
+#adult data
+adultData <- data.frame(species = both_phylo_means$genus_species,
+                        anisotropy = both_phylo_means$mean_anisotropy.adults,
+                        sphericity = both_phylo_means$mean_sphericity.adults,
+                        elongation = both_phylo_means$mean_elongation.adults,
+                        eco = both_phylo_means$adult_ecology,
+                        stage = "adult")
+
+#combine datasets
+matchData <- rbind(tadData, adultData)
+matchData$stage <- factor(matchData$stage, levels = c("tadpole", "adult"))
+matchData$eco <- factor(matchData$eco, levels = c("aquatic","fossorial","subfossorial","semi-aquatic","ground-dwelling","scansorial"))
+
+#add column binning adults into "aquatic" or "terrestrial"
+matchData$hab <- ifelse(matchData$eco=="aquatic", "aquatic", "terrestrial")
+
+#make column that codes for both tadpole and adult habitat (for coloring)
+matchData$hab2 <- ifelse(matchData$stage=="tadpole", "aquatic", matchData$hab)
+
+#make column for faceting/labels based on adult habitat
+matchData$lab <- ifelse(matchData$eco=="aquatic", "aq. to aq.", "aq. to terr.")
+matchData$lab <- factor(matchData$lab, levels = c("aq. to aq.", "aq. to terr."))
+
+# Make Figure 4 ------
+
+#define habitat colors
+col_hab_binary <- c("aquatic" = "#0072B2",
+                    "terrestrial" = "#4d3208")
+
+#define life stage points
+shape_stage <- c("tadpole" = 1,
+                 "adult" = 19)
+
+#plot matched data separated by adult habitats
+
+#anisotropy
+an.paired.plot2 <- ggplot(matchData, aes(x = stage, y = anisotropy)) +
+  scale_fill_manual(values = col_hab_binary, name = "Habitat") +
+  scale_shape_manual(values = shape_stage, name = "Life stage") +
+  scale_color_manual(values = col_hab_binary, name = "Habitat") +
+  geom_violin(alpha=0.5, trim = T, width = .8, position = position_dodge(1)) + 
+  geom_boxplot(width = 0.2, position = position_dodge(1), fill="white", outlier.alpha = 0) +
+  geom_point(size = 1, alpha = 0.6, aes(shape = stage)) + 
+  geom_line(aes(group = species, col = hab), alpha = 0.4) +
+  labs(x = "Life stage", y = "Anisotropy") + 
+  theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = "none") +
+  facet_wrap(~lab, nrow = 1) +
+  theme(strip.background = element_blank(), strip.text.x = element_text(size=10)) +
+  geom_segment(aes(x=1, y = 0.37, xend = 2, yend = 0.37, col=hab))
+
+#sphericity
+sp.paired.plot2 <- ggplot(matchData, aes(x = stage, y = sphericity)) +
+  scale_fill_manual(values = col_hab_binary, name = "Habitat") +
+  scale_shape_manual(values = shape_stage, name = "Life stage") +
+  scale_color_manual(values = col_hab_binary, name = "Habitat") +
+  geom_violin(alpha=0.5, trim = T, width = .8, position = position_dodge(1)) + 
+  geom_boxplot(width = 0.2, position = position_dodge(1), fill="white", outlier.alpha = 0) +
+  geom_point(size = 1, alpha = 0.6, aes(shape = stage)) + 
+  geom_line(aes(group = species, col = hab), alpha = 0.4) +
+  labs(x = "Life stage", y = "Sphericity") + 
+  theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = "none") +
+  facet_wrap(~lab, nrow = 1) +
+  theme(strip.background = element_blank(), strip.text.x = element_text(size=10)) #+
+  #geom_segment(aes(x=1, y = 1.01, xend = 2, yend = 1.01, col=hab))
+
+#elongation
+el.paired.plot2 <- ggplot(matchData, aes(x = stage, y = elongation)) +
+  scale_fill_manual(values = col_hab_binary, name = "Habitat") +
+  scale_shape_manual(values = shape_stage, name = "Life stage") +
+  scale_color_manual(values = col_hab_binary, name = "Habitat") +
+  geom_violin(alpha=0.5, trim = T, width = .8, position = position_dodge(1)) + 
+  geom_boxplot(width = 0.2, position = position_dodge(1), fill="white", outlier.alpha = 0) +
+  geom_point(size = 1, alpha = 0.6, aes(shape = stage)) +
+  geom_line(aes(group = species, col = hab), alpha = 0.4) +
+  labs(x = "Life stage", y = "Elongation") + 
+  theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = "none") +
+  facet_wrap(~lab, nrow = 1) +
+  theme(strip.background = element_blank(), strip.text.x = element_text(size=10)) +
+  geom_segment(aes(x=1, y = 1.01, xend = 2, yend = 1.01, col=hab))
+
+# Construct Figure 3BC -------
+
+fig.b <- an.paired.plot2 +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank()) 
+
+fig.c <- sp.paired.plot2 +
+  theme(strip.background = element_blank(), strip.text.x = element_blank()) 
+
+plots <- plot_grid(fig.b, fig.c,
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("B", "C"), #panel labels for figure
+           hjust = -.1, #adjustment for panel labels
+           nrow = 2) #number of rows in grids
+
+#print figure
+plots
+
+#export figure
+pdf(file = "../Outputs/Figures/Fig3bc.pdf", width = 3,  height = 8)
+plots
+dev.off()
+
+
+# Make supplemental figure -----
+
+#define a colorblind-friendly vector of colors for adult habitat
+col_hab <- c("aquatic" = "#0072B2",
+              "fossorial" = "#D55E00",
+              "ground-dwelling" = "#E69F00",
+              "scansorial" = "#009E73",
+              "semi-aquatic" = "#56B4E9",
+              "subfossorial" = "#CC79A7")
+
+shape_stage <- c("tadpole" = 1,
+                 "adult" = 19)
+
+#plot matched data separated by adult habitats
+
+#anisotropy
+an.paired.plot <- ggplot(matchData, aes(x = stage, y = anisotropy, fill = eco)) +
+  scale_fill_manual(values = col_hab, name = "Adult habitat") +
+  scale_shape_manual(values = shape_stage, name = "Life stage") +
+  scale_color_manual(values = col_hab, name = "Adult habitat") +
+  geom_violin(alpha=0.5, trim = T, width = .8, position = position_dodge(1)) + 
+  geom_boxplot(width = 0.2, position = position_dodge(1), fill="white", outlier.alpha = 0) +
+  geom_point(size = 1, alpha = 0.9, aes(shape = stage)) + 
+  geom_line(aes(group = species, col = eco), alpha = 0.5) +
+  labs(x = "Life stage", y = "Anisotropy") + 
+  theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = "none") +
+  facet_wrap(~eco, nrow = 1) +
+  theme(strip.background = element_blank())
+  
+#sphericity
+sp.paired.plot <- ggplot(matchData, aes(x = stage, y = sphericity, fill = eco)) +
+  scale_fill_manual(values = col_hab, name = "Adult habitat") +
+  scale_shape_manual(values = shape_stage, name = "Life stage") +
+  scale_color_manual(values = col_hab, name = "Adult habitat") +
+  geom_violin(alpha=0.5, trim = T, width = .8, position = position_dodge(1)) + 
+  geom_boxplot(width = 0.2, position = position_dodge(1), fill="white", outlier.alpha = 0) +
+  geom_point(size = 1, alpha = 0.9, aes(shape = stage)) + 
+  geom_line(aes(group = species, col = eco), alpha = .5) +
+  labs(x = "Life stage", y = "Sphericity") + 
+  theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = "none") +
+  facet_wrap(~eco, nrow = 1)+
+  theme(strip.background = element_blank())
+
+#elongation
+el.paired.plot <- ggplot(matchData, aes(x = stage, y = elongation, fill = eco)) +
+  scale_fill_manual(values = col_hab, name = "Adult habitat") +
+  scale_shape_manual(values = shape_stage, name = "Life stage") +
+  scale_color_manual(values = col_hab, name = "Adult habitat") +
+  geom_violin(alpha=0.5, trim = T, width = .8, position = position_dodge(1)) + 
+  geom_boxplot(width = 0.2, position = position_dodge(1), fill="white", outlier.alpha = 0) +
+  geom_point(size = 1, alpha = 0.9, aes(shape = stage)) + 
+  geom_line(aes(group = species, col = eco), alpha = .5) +
+  labs(x = "Life stage", y = "Elongation") + 
+  theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = "none") +
+  facet_wrap(~eco, nrow = 1)+
+  theme(strip.background = element_blank())
+
+
+# Construct supplemental figure -------
+
+fig.a <- an.paired.plot +
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank()) 
+
+fig.b <- sp.paired.plot +
+  theme(strip.background = element_blank(), strip.text.x = element_blank(), axis.title.x=element_blank(), axis.text.x=element_blank()) 
+
+fig.c <- el.paired.plot +
+  theme(strip.background = element_blank(), strip.text.x = element_blank()) 
+
+
+plots <- plot_grid(fig.a, fig.b, fig.c,
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("A", "B", "C"), #panel labels for figure
+           hjust = -.1, #adjustment for panel labels
+           nrow = 3) #number of rows in grids
+
+#print figure
+plots
+
+#export figure
+pdf(file = "../Outputs/Figures/FigS4.pdf", width = 8,  height = 11)
+plots
+dev.off()
+```
+
+
