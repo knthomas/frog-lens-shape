@@ -1,15 +1,13 @@
 ---
 title: "Tidy and subset lens data"
 author: "Katie Thomas"
-date: '2022-03-08'
+date: '2022-07-11'
 output:
   html_document:
     code_fold: show
     theme: flatly
     toc: yes
     toc_float: yes
-  pdf_document:
-    toc: yes
 ---
 
 <style type="text/css">
@@ -40,7 +38,7 @@ The raw data file contains one row for **each lens** sampled. For most specimens
 
 ```{r}
 # Load raw data
-lens_data <- read.csv("../Data/Raw/ct_lenses_MAR22.csv", header = TRUE, na.strings=c("", "NA", " "))
+lens_data <- read.csv("../Data/Raw/Mitra_et_al_data_revised.csv", header = TRUE, na.strings=c("", "NA", " "))
 ```
 
 ## Raw phylogeny
@@ -49,29 +47,18 @@ The phylogeny data is the consensus tree from Jetz and Pyron (2019).
 
 ```{r}
 #Import phylogeny from Jetz and Pyron 2019
-tree_orig <- read.tree(file = "../Data/Raw/amph_shl_new_Consensus_7238.tre") #reads tree
+tree_orig <- ape::read.tree(file = "../Data/Raw/amph_shl_new_Consensus_7238.tre") #reads tree
 ```
 
 # Tidy lens data
 
-Here, we tidy up a few messy things. For activity period, cathemeral is changed to "both" to mirror the paper, empty ecological fields (or those termed "unknown") are changed to NA. Unused fields (e.g. alternate coding for adult habitat, lens measurements not analyzed, etc.) are removed. When we archive the data, we should download and include this tidied datasheet instead of the raw one. 
+Here, we remove an individual (BMNH1977.1533) from the dataset we will use for analyses. While our paper was in review, a reviewer asked us to take a careful look at our data for an adult Xenopus victorianus. To address this, we downloaded a scan of a different individual from Morphosource (CAS:SUA:18268) and used data from this instead of from our original scan (BMNH1977.1533). 
 
 ```{r}
+
+#tidy lens data
 lens_data_tidy <- lens_data %>%
-  #capitalize order
-  mutate(order = str_to_title(order)) %>%
-  #capitalize family
-  mutate(family = str_to_title(family)) %>%
-  #capitalize genus
-  mutate(genus = str_to_title(genus)) %>%
-  #change activity period from cathemeral to both
-  mutate(activity_period = recode(activity_period, "cathemeral" = "both")) %>%
-  #change unknown activity period to NA
-  mutate(activity_period = na_if(activity_period, "unknown")) %>%
-  #change unknown adult habitat to NA
-  mutate(adult_ecology = na_if(adult_ecology, "unknown")) %>%
-  #select only used columns of data
-  select(specimen_id, order, family, genus, species, life_stage, lens, flatness, anisotropy, elongation, sphericity, eye_diameter_mm, lens_diameter_mm, sv_length_mm, stain, scan_type, adult_ecology, ae_source, activity_period, ap_source, scan_source, scan_technician)
+ filter(specimen_id != "BMNH1977.1533")
 
 #export tidy data
 write.csv(lens_data_tidy, file = "../Data/Tidy/lens_data_tidy.csv", row.names = FALSE)
@@ -140,6 +127,10 @@ Number of specimens sampled by source:
 ```{r}
 #number of specimens by source
 specimen_means2 %>%
+  count(scan_source)
+
+#number of specimens by source and life stage
+specimen_means2 %>%
   group_by(life_stage) %>%
   count(scan_source)
 ```
@@ -172,11 +163,20 @@ species_stage_means <- specimen_means %>%
             n_specimens = n()) %>%
     mutate(mean_svl = na_if(mean_svl, "NaN"))
 
-#add synonym and substitutions for phylogeny into dataframe (phylo_species column)
+#find species in dataset that don't exist as phylogeny tip label
+which(!species_stage_means$genus_species %in% as.vector(tree_orig$tip.label))
+
+#add synonym and substitutions for phylogeny into dataframe for the 5 species that aren't matching (phylo_species column)
 species_stage_means$phylo_species <- as.character(species_stage_means$genus_species)
-species_stage_means[species_stage_means$phylo_species=="Hypsiboas_geographica", "phylo_species"] <- "Hypsiboas_geographicus"
+species_stage_means[species_stage_means$phylo_species=="Boana_geographica", "phylo_species"] <- "Hypsiboas_geographicus"
 species_stage_means[species_stage_means$phylo_species=="Chiasmocleis_hudsoni", "phylo_species"] <- "Syncope_hudsoni"
+species_stage_means[species_stage_means$phylo_species=="Elachistocleis_nigrogularis", "phylo_species"] <- "Elachistocleis_ovalis"
+species_stage_means[species_stage_means$phylo_species=="Indosylvirana_temporalis", "phylo_species"] <- "Hylarana_temporalis"
 species_stage_means[species_stage_means$phylo_species=="Rhombophryne_nilevina", "phylo_species"] <- "Rhombophryne_alluaudi"
+
+#remove extra levels
+species_stage_means <- species_stage_means %>%
+  droplevels()
 
 #export species means by life stage
 write.csv(species_stage_means, file = "../Data/Tidy/species_stage_means.csv", row.names = FALSE)
@@ -198,8 +198,9 @@ species_means <- full_join(tads_mean, adults_mean,
                            suffix = c(".tads", ".adults")) %>%
   rename(adult_ecology = adult_ecology.adults) %>%
   rename(activity_period = activity_period.adults) %>%
+  mutate(phylo_species = ifelse(is.na(phylo_species.adults), as.character(phylo_species.tads), as.character(phylo_species.adults))) %>%
   mutate(family = ifelse(is.na(family.adults), as.character(family.tads), as.character(family.adults))) %>%
-  select(genus_species, family, mean_flatness.tads, mean_anisotropy.tads, mean_elongation.tads, mean_sphericity.tads, mean_svl.tads, n_specimens.tads, mean_flatness.adults, mean_anisotropy.adults, mean_elongation.adults, mean_sphericity.adults, mean_svl.adults, n_specimens.adults, adult_ecology, activity_period)
+  select(genus_species, family, mean_flatness.tads, mean_anisotropy.tads, mean_elongation.tads, mean_sphericity.tads, mean_svl.tads, n_specimens.tads, mean_flatness.adults, mean_anisotropy.adults, mean_elongation.adults, mean_sphericity.adults, mean_svl.adults, n_specimens.adults, adult_ecology, activity_period, phylo_species)
 
 #export species means
 write.csv(species_means, file = "../Data/Tidy/species_means.csv", row.names = FALSE)
@@ -274,32 +275,20 @@ Species with 2D adult eye & lens size data:  `r nrow(adult_eye)`
 
 # Prune phylogeny to match species with data
 
-Here, we prune the phylogeny to the 122 species in our dataset, and then relabel the tip labels to match our names for the speices. The phylogeny we are using has two species that differ in name from the species in our dataset (synonyms), and one species that is not represented. Specifically, in the phylogeny we rreplace _Syncope_hudsoni_ with synonym _Chiasmocleis_hudsoni_, and replace _Rhombophryne_alluaudi_ with substitute _Rhombophryne_nilevina_. 
-
+Here, we prune the phylogeny to the 123 species in our dataset, and then relabel the tip labels to match our names for the species. The phylogeny we are using has two species that differ in name from the species in our dataset (synonyms), and one species that is not represented. Specifically, in the phylogeny we replace _Hypsiboas geographicus_ with synonym _Boana geographica_, _Syncope hudsoni_ with synonym _Chiasmocleis hudsoni_, and _Hylarana temporalis_ with synonym _Indosylvirana temporalis_. We replace _Rhombophryne_alluaudi_ with substitute _Rhombophryne_nilevina_ and _Elachistocleis ovalis_ with substitute _Elachistocleis nigrorgularis_.
 
 ```{r, fig.height=12, fig.width=5}
 
 #make new dataframe of species means
-tree_data <- species_means
+tree_data <- ungroup(species_means)
 
 #add rownames to data
-rownames(tree_data) <- tree_data$genus_species
+rownames(tree_data) <- tree_data$phylo_species
 
 #check whether names in tree and dataset match
 name.check(tree_orig, tree_data) -> overlap
 
 #species in data that aren't matching tree
-overlap$data_not_tree
-
-#make a new column for names that will match phylogeny
-tree_data <- tree_data %>%
-  mutate(phylo_species = as.character(genus_species))
-tree_data[tree_data$phylo_species=="Chiasmocleis_hudsoni", "phylo_species"] <- "Syncope_hudsoni"
-tree_data[tree_data$phylo_species=="Rhombophryne_nilevina", "phylo_species"] <- "Rhombophryne_alluaudi"
-
-#check again whether now species all match with phylogeny
-rownames(tree_data) <- tree_data$phylo_species
-name.check(tree_orig, tree_data) -> overlap
 overlap$data_not_tree
 
 #drop tips from tree that don't match the data
@@ -332,5 +321,4 @@ plot.phylo(tree.sub, #phylogeny to plot
 
 #export final tree
 write.nexus(tree.sub, file = "../Data/Tidy/lens_shape_tree.nex")
-
 ```

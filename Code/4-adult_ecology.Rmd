@@ -1,15 +1,13 @@
 ---
 title: "Lens shape and relative size by adult ecology"
 author: "Katie Thomas"
-date: '2022-03-15'
+date: '2022-07-11'
 output:
   html_document:
     code_fold: show
     theme: flatly
     toc: yes
     toc_float: yes
-  pdf_document:
-    toc: yes
 ---
 
 <style type="text/css">
@@ -43,7 +41,7 @@ library(caper)
 library(tidyverse)
 ```
 
-Here, we examine whether adult lens size (relative to eye size) or shape are correlated with adult ecology (habitat or activity period). We do this across all adults sampled with available data (n = 181 species, with n = 80 for eye size data)
+Here, we examine whether adult lens size (relative to eye size) or shape are correlated with adult ecology (habitat or activity period). We do this across all adults sampled with available data (n = 118 species, with n = 80 for eye size data)
 
 
 # Import data
@@ -406,6 +404,33 @@ anova(act.aniso.pgls)
 summary(act.aniso.pgls)
 
 ```
+Diurnal as comparison state:
+
+```{r}
+#make ground-dwelling base state
+adult.act.comp$data$activity_period <- factor(adult.act.comp$data$activity_period, levels = c("diurnal", "nocturnal", "both"))
+
+#fit model
+act.aniso.pgls <- pgls(mean_anisotropy.adults ~ activity_period,
+                       data = adult.act.comp, 
+                       lambda="ML")
+
+#check model assumptions
+par(mar = c(4,4,2,2))
+par(mfrow = c(2, 2))
+plot(act.aniso.pgls)
+par(mfrow = c(1, 1))
+
+#look at phy signal estmiate
+plot(pgls.profile(act.aniso.pgls, which="lambda"))
+
+#view main effects
+anova(act.aniso.pgls)
+
+#view coefficients
+summary(act.aniso.pgls)
+```
+
 
 #### Sphericity
 
@@ -425,7 +450,7 @@ plot(act.sph.pgls)
 par(mfrow = c(1, 1))
 
 #look at phy signal estmiate
-plot(pgls.profile(act.aniso.pgls, which="lambda"))
+plot(pgls.profile(act.sph.pgls, which="lambda"))
 
 #view main effects
 anova(act.sph.pgls)
@@ -451,7 +476,7 @@ plot(act.elong.pgls)
 par(mfrow = c(1, 1))
 
 #look at phy signal estmiate
-plot(pgls.profile(act.aniso.pgls, which="lambda"))
+plot(pgls.profile(act.elong.pgls, which="lambda"))
 
 #view main effects
 anova(act.elong.pgls)
@@ -956,7 +981,7 @@ fig.e <- sph_habs +
   scale_x_discrete(breaks = c("fossorial","aquatic","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
                    limits = c("fossorial","aquatic","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
                    labels = c("foss.","aq.","semiaq.","subfoss.", "ground", "scans.") ) +
-  geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic","subfossorial","ground-dwelling","scansorial"),"y" = c(1,1,1,1,1,1), "group" = c("a,b", "a,b,c", "a,b,c,d", "b,c,d","c,d","c,d")),
+  geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic","subfossorial","ground-dwelling","scansorial"),"y" = c(1,1,1,1,1,1), "group" = c("a", "a,b", "a,b,c", "b,c","c","c")),
             aes(y = y, label = group),
             vjust = -.5) +
   theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot

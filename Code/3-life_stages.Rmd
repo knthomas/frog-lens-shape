@@ -59,7 +59,7 @@ tree.full <- read.nexus(file = "../Data/Tidy/lens_shape_tree.nex")
 
 ## Q1 Lens shape of tadpoles vs. adults
 
-Here, we examine whether tadpole lens shape differs from adult lens shape across all species sampled (118 species with adult data, 48 species with tadpole data). These models do not include phylogenetic corrections. 
+Here, we examine whether tadpole lens shape differs from adult lens shape across all species sampled (118 species with adult data, 50 species with tadpole data). These models do not include phylogenetic corrections. 
 
 ### Principle component analysis
 
@@ -122,7 +122,7 @@ fit <- summary(
 
 ## Q2 Differences in lens shape through ontogeny within species
 
-Here, we examine a subset of species (n = 44) that have matched tadpole and adult lens shape data to see how lens shape changes through ontogeny and whether this is driven by differences in adult habitat. 
+Here, we examine a subset of species (n = 45) that have matched tadpole and adult lens shape data to see how lens shape changes through ontogeny and whether this is driven by differences in adult habitat. 
 
 ### Phylogenetic signal
 
@@ -582,24 +582,38 @@ SemiEcoColr<- SemiEcoColr[match(SpEcology, names(SemiEcoColr))] # col.gp must NO
 names(SemiEcoColr)<-phylo_pca_means$genus_species
 SemiEcoColr<-SemiEcoColr[tree.full$tip.label]
 
+
 #Print graph
 plot(tree.full, show.tip.label= F, font=3, cex=0.5, label.offset = 1.5, edge.width=3, x.lim=c(0,700))
 par(fg="black")
 tt<-gsub("_"," ",tree.full$tip.label)
-text(lastPP$xx[1:length(tt)],lastPP$yy[1:length(tt)], tt,cex=0.5,col=SemiEcoColr, pos=4, offset=0.1, font=3)
-segments(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), 550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="grey90", lwd=5)
-segments(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), 550 + (PC1_tad*50), 1:nrow(phylo_pca_means), col="grey", lwd=5)
-segments(550 + (PC1_adult*50), 1:nrow(phylo_pca_means), 550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="black", lwd=5)
+#plot segments for connecting tip labels to tad lens
+segments(300, 1:nrow(phylo_pca_means), 550 + (pmax(PC1_adult, PC1_tad, na.rm=TRUE)*50), 1:nrow(phylo_pca_means), col="black", lwd=1, lty = "dotted")
+#plot tip labels
+text(lastPP$xx[1:length(tt)],lastPP$yy[1:length(tt)], tt, cex=0.5,pos=4, offset=0.1, font=3, col = "black")
+#plot segments for change in lens
+segments(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), 550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="grey90", lwd=6)
+#plot tadpole lens
+points(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), col="black", bg = "white", pch = 21, cex=1)
+#plot adult lens
+points(550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col=SemiEcoColr, bg=SemiEcoColr, pch = 21, cex=1)
+
 
 #Export figure
 pdf(file = "../Outputs/Figures/Fig3a.pdf", width = 6,  height = 12)
-plot(tree.full, show.tip.label= F, font=3, cex=0.5, label.offset = 1.5, edge.width=3, x.lim=c(0,700))
+plot(tree.full, show.tip.label= F, font=3, cex=0.5, label.offset = 1.5, edge.width=1.5, x.lim=c(0,700))
 par(fg="black")
 tt<-gsub("_"," ",tree.full$tip.label)
-text(lastPP$xx[1:length(tt)],lastPP$yy[1:length(tt)], tt,cex=0.5, col=SemiEcoColr, pos=4, offset=0.1, font=3)
-segments(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), 550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="grey90", lwd=5)
-segments(550 + (PC1_tad*50), 1:nrow(phylo_pca_means), 550 + (PC1_tad*50), 1:nrow(phylo_pca_means), col="grey", lwd=5)
-segments(550 + (PC1_adult*50), 1:nrow(phylo_pca_means), 550 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="black", lwd=5)
+#plot segments for connecting tip labels to tad lens
+segments(410, 1:nrow(phylo_pca_means), 575 + (pmax(PC1_adult, PC1_tad, na.rm=TRUE)*50), 1:nrow(phylo_pca_means), col="black", lwd=1, lty = "dotted")
+#plot tip labels
+text(lastPP$xx[1:length(tt)],lastPP$yy[1:length(tt)], tt, cex=0.5,pos=4, offset=0.1, font=3, col = "black")
+#plot segments for change in lens
+segments(575 + (PC1_tad*50), 1:nrow(phylo_pca_means), 575 + (PC1_adult*50), 1:nrow(phylo_pca_means), col="grey90", lwd=6)
+#plot tadpole lens
+points(575 + (PC1_tad*50), 1:nrow(phylo_pca_means), col="black", bg = "white", pch = 21, cex=1)
+#plot adult lens
+points(575 + (PC1_adult*50), 1:nrow(phylo_pca_means), col=SemiEcoColr, bg=SemiEcoColr, pch = 21, cex=1)
 dev.off()
 ```
 
@@ -639,8 +653,8 @@ matchData$hab <- ifelse(matchData$eco=="aquatic", "aquatic", "terrestrial")
 matchData$hab2 <- ifelse(matchData$stage=="tadpole", "aquatic", matchData$hab)
 
 #make column for faceting/labels based on adult habitat
-matchData$lab <- ifelse(matchData$eco=="aquatic", "aq. to aq.", "aq. to terr.")
-matchData$lab <- factor(matchData$lab, levels = c("aq. to aq.", "aq. to terr."))
+matchData$lab <- ifelse(matchData$eco=="aquatic", "remains aquatic", "becomes terrestrial")
+matchData$lab <- factor(matchData$lab, levels = c("remains aquatic", "becomes terrestrial"))
 
 # Make Figure 4 ------
 
@@ -666,8 +680,8 @@ an.paired.plot2 <- ggplot(matchData, aes(x = stage, y = anisotropy)) +
   labs(x = "Life stage", y = "Anisotropy") + 
   theme(text = element_text(size=12), panel.background = element_blank(), axis.line = element_line(colour = "black"), legend.position = "none") +
   facet_wrap(~lab, nrow = 1) +
-  theme(strip.background = element_blank(), strip.text.x = element_text(size=10)) +
-  geom_segment(aes(x=1, y = 0.37, xend = 2, yend = 0.37, col=hab))
+  theme(strip.background = element_blank(), strip.text.x = element_text(size=9)) +
+  geom_segment(aes(x=1, y = 0.4, xend = 2, yend = 0.4, col=hab))
 
 #sphericity
 sp.paired.plot2 <- ggplot(matchData, aes(x = stage, y = sphericity)) +
@@ -702,10 +716,20 @@ el.paired.plot2 <- ggplot(matchData, aes(x = stage, y = elongation)) +
 # Construct Figure 3BC -------
 
 fig.b <- an.paired.plot2 +
-  theme(axis.title.x=element_blank(), axis.text.x=element_blank()) 
+  theme(axis.title.x=element_blank(), axis.text.x=element_blank()) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_anisotropy, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
 
 fig.c <- sp.paired.plot2 +
-  theme(strip.background = element_blank(), strip.text.x = element_blank()) 
+  theme(strip.background = element_blank(), strip.text.x = element_blank()) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_sphericity, linetype = specimen_id)) +
+  scale_linetype_manual(values = c("dashed","dotted"),
+                        breaks = c("Perfect sphere", "Lens_replica"),
+                        labels= c("Perfect sphere","Lens replica"),
+                        name = "Reference shapes")
 
 plots <- plot_grid(fig.b, fig.c,
            align = 'vh', #align horizontally and vertically

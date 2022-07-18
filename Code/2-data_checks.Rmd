@@ -8,8 +8,6 @@ output:
     theme: flatly
     toc: yes
     toc_float: yes
-  pdf_document:
-    toc: yes
 ---
 
 <style type="text/css">
