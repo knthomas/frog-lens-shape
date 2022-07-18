@@ -1,7 +1,7 @@
 ---
 title: "Lens shape and relative size by adult ecology"
-author: "Katie Thomas"
-date: '2022-07-11'
+author: "Amartya Mitra, Molly Womack, Katie Thomas"
+date: '2022-07-18'
 output:
   html_document:
     code_fold: show

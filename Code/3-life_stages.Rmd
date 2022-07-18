@@ -1,15 +1,13 @@
 ---
 title: "Lens shape in tadpoles vs. adults"
-author: "Katie Thomas"
-date: '2022-03-11'
+author: "Amartya Mitra, Molly Womack, Katie Thomas"
+date: '2022-07-18'
 output:
   html_document:
     code_fold: show
     theme: flatly
     toc: yes
     toc_float: yes
-  pdf_document:
-    toc: yes
 ---
 
 <style type="text/css">
