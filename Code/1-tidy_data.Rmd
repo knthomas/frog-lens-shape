@@ -1,7 +1,7 @@
 ---
 title: "Tidy and subset lens data"
-author: "Katie Thomas"
-date: '2022-07-11'
+author: "Amartya Mitra, Molly Womack, Katie Thomas"
+date: '2022-07-18'
 output:
   html_document:
     code_fold: show
@@ -58,7 +58,7 @@ Here, we remove an individual (BMNH1977.1533) from the dataset we will use for a
 
 #tidy lens data
 lens_data_tidy <- lens_data %>%
- filter(specimen_id != "BMNH1977.1533")
+  filter(specimen_id != "BMNH1977.1533")
 
 #export tidy data
 write.csv(lens_data_tidy, file = "../Data/Tidy/lens_data_tidy.csv", row.names = FALSE)
@@ -163,8 +163,10 @@ species_stage_means <- specimen_means %>%
             n_specimens = n()) %>%
     mutate(mean_svl = na_if(mean_svl, "NaN"))
 
+
 #find species in dataset that don't exist as phylogeny tip label
-which(!species_stage_means$genus_species %in% as.vector(tree_orig$tip.label))
+missing <- as.vector(which(!species_stage_means$genus_species %in% as.vector(tree_orig$tip.label)))
+(as.data.frame(species_stage_means))[missing, 1]
 
 #add synonym and substitutions for phylogeny into dataframe for the 5 species that aren't matching (phylo_species column)
 species_stage_means$phylo_species <- as.character(species_stage_means$genus_species)
@@ -275,7 +277,7 @@ Species with 2D adult eye & lens size data:  `r nrow(adult_eye)`
 
 # Prune phylogeny to match species with data
 
-Here, we prune the phylogeny to the 123 species in our dataset, and then relabel the tip labels to match our names for the species. The phylogeny we are using has two species that differ in name from the species in our dataset (synonyms), and one species that is not represented. Specifically, in the phylogeny we replace _Hypsiboas geographicus_ with synonym _Boana geographica_, _Syncope hudsoni_ with synonym _Chiasmocleis hudsoni_, and _Hylarana temporalis_ with synonym _Indosylvirana temporalis_. We replace _Rhombophryne_alluaudi_ with substitute _Rhombophryne_nilevina_ and _Elachistocleis ovalis_ with substitute _Elachistocleis nigrorgularis_.
+Here, we prune the phylogeny to the 126 species in our dataset, and then relabel the tip labels to match our names for the species. The phylogeny we are using has two species that differ in name from the species in our dataset (synonyms), and one species that is not represented. Specifically, in the phylogeny we replace _Hypsiboas geographicus_ with synonym _Boana geographica_, _Syncope hudsoni_ with synonym _Chiasmocleis hudsoni_, and _Hylarana temporalis_ with synonym _Indosylvirana temporalis_. We replace _Rhombophryne_alluaudi_ with substitute _Rhombophryne_nilevina_ and _Elachistocleis ovalis_ with substitute _Elachistocleis nigrorgularis_.
 
 ```{r, fig.height=12, fig.width=5}
 
@@ -293,7 +295,7 @@ overlap$data_not_tree
 
 #drop tips from tree that don't match the data
 tree.pruned <- drop.tip(tree_orig, overlap$tree_not_data)
-plot(tree.pruned, cex = 0.4)
+plot(tree.pruned, cex = 0.6)
 
 #create a dataframe with column 1 with all original phylo tip labels, and column 2 with corresponding desired tip labels
 subs <- tree_data[ , c("phylo_species", "genus_species")] %>%
@@ -306,14 +308,14 @@ tree.sub <- tree.pruned
 #rename tree tip labels to match the species names in our dataset
 tree.sub$tip.label <- subs[[2]][match(tree.sub$tip.label, subs[[1]])]
 
-#check that tree tip lables match data species lables
+#check that tree tip lables match data species labels
 setdiff(tree.sub$tip.label, tree_data$genus_species)
 
 #plot final pruned, relabeled tree
 plot.phylo(tree.sub, #phylogeny to plot
            type = "phylogram", #how to visualize phylogeny
            show.tip.label = TRUE, #whether to show tip labels/species names
-           cex = 1.0, #text size
+           cex = 0.6, #text size
            no.margin = TRUE, 
            use.edge.length = TRUE,
            edge.width = 1.5, #thickness of phylogeny branches
