@@ -1,7 +1,7 @@
 ---
 title: "Check lens shape data"
 author: "Amartya Mitra, Molly Womack, Katie Thomas"
-date: '2022-07-18'
+date: '2022-07-20'
 output:
   html_document:
     code_fold: show
@@ -222,7 +222,7 @@ abline(0,0, col="red")
 #dev.off()
 
 #plot ordered residuals with specimen labels
-pdf(file = "../Outputs/LeftVsRight_LensShape_OrderedLMResiduals_Labeled_.pdf", width = 30,  height = 30)
+#pdf(file = "../Outputs/LeftVsRight_LensShape_OrderedLMResiduals_Labeled_.pdf", width = 30,  height = 30)
 par(mfrow=c(2, 2))
 plot(LR_flat$residuals)
 text(LR_flat$residuals, label=names(LR_anis$residuals))
@@ -232,24 +232,23 @@ plot(LR_elon$residuals)
 text(LR_elon$residuals, label=names(LR_elon$residual))
 plot(LR_sphe$residuals)
 text(LR_sphe$residuals, label=names(LR_sphe$residual))
-dev.off()
+#dev.off()
 
-# Start writing to an output file
-sink('../Outputs/LR_ShapeAssymetry_Outliers.txt')
-
-#check for outliers
-cat("\n\n LR_Flat_Outliers \n")
-boxplot.stats(LR_flat$residuals)$out  
-cat("\n\n LR_Anis_Outliers \n")
-boxplot.stats(LR_anis$residuals)$out  
-cat("\n\n LR_Elon_Outliers \n")
-boxplot.stats(LR_elon$residuals)$out 
-cat("\n\n LR_Sphe_Outliers \n")
-boxplot.stats(LR_sphe$residuals)$out  
-
-# Stop writing to the file
-sink()
-
+# # Start writing to an output file
+# sink('../Outputs/LR_ShapeAssymetry_Outliers.txt')
+# 
+# #check for outliers
+# cat("\n\n LR_Flat_Outliers \n")
+# boxplot.stats(LR_flat$residuals)$out  
+# cat("\n\n LR_Anis_Outliers \n")
+# boxplot.stats(LR_anis$residuals)$out  
+# cat("\n\n LR_Elon_Outliers \n")
+# boxplot.stats(LR_elon$residuals)$out 
+# cat("\n\n LR_Sphe_Outliers \n")
+# boxplot.stats(LR_sphe$residuals)$out  
+# 
+# # Stop writing to the file
+# sink()
 ```
 
 # Tests for correlation between 3D shape metrics
