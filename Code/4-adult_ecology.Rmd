@@ -380,9 +380,6 @@ adult.act.comp <- comparative.data(phy=tree.adult.activ, data=adult_phylo_activ,
 
 #pgls for anisotropy----
 
-#make nocturnal base state
-adult.act.comp$data$activity_period <- factor(adult.act.comp$data$activity_period, levels = c("nocturnal", "diurnal","both"))
-
 #fit model
 act.aniso.pgls <- pgls(mean_anisotropy.adults ~ activity_period,
                        data = adult.act.comp, 
@@ -399,21 +396,6 @@ plot(pgls.profile(act.aniso.pgls, which="lambda"))
 
 #view main effects
 anova(act.aniso.pgls)
-
-#view coefficients
-summary(act.aniso.pgls)
-
-```
-Diurnal as comparison state:
-
-```{r}
-#make ground-dwelling base state
-adult.act.comp$data$activity_period <- factor(adult.act.comp$data$activity_period, levels = c("diurnal", "nocturnal", "both"))
-
-#fit model
-act.aniso.pgls <- pgls(mean_anisotropy.adults ~ activity_period,
-                       data = adult.act.comp, 
-                       lambda="ML")
 
 #view coefficients
 summary(act.aniso.pgls)
@@ -652,9 +634,6 @@ adult_eye_activ<-adult_eye_activ[ ! adult_eye_activ$genus_species %in% overlap$d
 adult_eye_activ[] <- lapply(adult_eye_activ, function(x) if(is.factor(x)) factor(x) else x)
 adult_eye_activ <-  adult_eye_activ[tree.eye.activ$tip.label, ]
 
-#different factor order for contrasts
-adult_eye_activ$activity_period <- factor(adult_eye_activ$activity_period, levels = c("nocturnal", "diurnal", "both"))
-
 #make comparative object
 act.eye.comp <- comparative.data(phy=tree.eye.activ, data=adult_eye_activ, names.col=genus_species, vcv=TRUE, na.omit=FALSE, warn.dropped=TRUE)
 
@@ -696,9 +675,8 @@ col_hab <- c("aquatic" = "#0072B2",
               "subfossorial" = "#CC79A7")
 
 #create vector of colors for activity period
-col_act <- c("both" = "deeppink3",
-             "diurnal" = "darkgoldenrod1", 
-             "nocturnal" = "blueviolet")
+col_act <- c("nocturnal" = "blueviolet",
+             "non-nocturnal" = "darkgoldenrod1")
 
 #create dataframe of artifical lens shapes
 lens_sh <- specimen_means %>%
@@ -764,7 +742,7 @@ activ.pca <- prcomp(adult_phylo_activ[,c("mean_anisotropy","mean_elongation","me
 
 activ <- as.factor(adult_phylo_activ$activity_period)
 names(activ)<-row.names(adult_phylo_activ)
-activColr<-c("#CD1076","#FFB90F","#8A2BE2")
+activColr<-c("#8A2BE2","#FFB90F")
 #activColr<-c(values=(magma(3, direction = -1)))
 names(activColr) <- levels(activ)
 activColr<- activColr[match(activ, names(activColr))] # col.gp must NOT be a factor
@@ -793,7 +771,7 @@ dev.off()
 pdf(file = "../Outputs/Figures/FigS6a.pdf", width = 6.5,  height = 5, useDingbats=FALSE)
 
 activPlot<-pca2d(activ.pca$x, group= activ, shape = 16 , col =activColr, show.centroids = TRUE, radius =1.5)
-legend("bottomright", c("diurnal", "nocturnal", "neither"), col=c("#FFB90F", "#8A2BE2", "#CD1076"), pch=16, box.lty=0)
+legend("bottomright", c("nocturnal", "non-nocturnal"), col=c("#8A2BE2", "#FFB90F"), pch=16, box.lty=0)
 
 dev.off()
 ```
@@ -1065,19 +1043,13 @@ fig.b <- anis_act +
   theme(legend.position = "none",
         axis.title.x=element_blank(),
         text = element_text(size = 16)) +
-  ylab("Anisotropy") +
-  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
-                   limits = c("diurnal","nocturnal","both"),
-                   labels = c("diur.", "noct.", "neith."))
+  ylab("Anisotropy")
 
 fig.c <- sph_act + 
   theme(legend.position = "none",
         axis.title.x=element_blank(),
         text = element_text(size = 16)) +
   ylab("Sphericity") +
-  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
-                   limits = c("diurnal","nocturnal","both"),
-                   labels = c("diur.", "noct.", "neith.")) +
   theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
   coord_cartesian(clip = "off")
 
@@ -1085,9 +1057,6 @@ fig.d <- gg_activ +
   theme(legend.position = "none",
         axis.title.x=element_blank(),
         text = element_text(size = 16)) +
-  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
-                 limits = c("diurnal","nocturnal","both"),
-                 labels = c("diur.", "noct.", "neith.")) +
   theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
   coord_cartesian(clip = "off")
 
@@ -1107,11 +1076,5 @@ plots
 pdf(file = "../Outputs/Figures/FigS6bcd.pdf", width = 12,  height = 8)
 plots
 dev.off()
-
-#check means of states for ordering plots
-# means<-adult_eye_eco2 %>%
-#   group_by(adult_ecology) %>%
-#   summarise(mean_eye = mean(pglsres.habeye, na.rm=TRUE))
-
 ```
 
