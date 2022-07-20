@@ -90,7 +90,7 @@ The following creates a dataframe with **one row per specimen**. Shape data for 
 # dataframe that averages by specimen
 LR_lens_data <- lens_data_tidy %>%
   mutate(genus_species = as.factor(paste(genus, species, sep = "_"))) %>% # creates a genus_species column
-  filter(life_stage != "repeat" & specimen_id != "BMNH1906.8.30.62" & life_stage != "artificial") %>%
+  filter(life_stage != "repeat" & life_stage != "artificial") %>%
   mutate_if(is.character, as.factor) %>% 
   group_by(specimen_id, genus_species, lens, life_stage, adult_ecology, activity_period) %>%
   summarise(mean_flatness = mean(flatness, na.rm = TRUE),
@@ -261,36 +261,48 @@ Correlation between all metrics. Flatness is excluded from further analyses to a
 #linear regressions and plots of pairs of shape metrics
 
 #flatness vs. anisotropy
+fa.fit <- lm(mean_flatness~mean_anisotropy, data = species_stage_means)
+
 flat_anis <- ggplot(species_stage_means, aes(x = mean_anisotropy, y = mean_flatness, shape = life_stage)) +
   scale_shape_manual(values=c(19,1), name = "Life stage") +
   geom_point(alpha = 0.6) +
   theme_classic() +
   labs(x="Anisotropy", y="Flatness") +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  geom_abline(slope = coef(fa.fit)[["mean_anisotropy"]], 
+              intercept = coef(fa.fit)[["(Intercept)"]])
 
-summary(lm(mean_flatness~mean_anisotropy, data = species_stage_means))
+summary(fa.fit)
 
 
 #flatness vs. elongation 
+fe.fit <- lm(mean_flatness~mean_elongation, data = species_stage_means)
+
 flat_elon <- ggplot(species_stage_means, aes(x = mean_elongation, y = mean_flatness, shape = life_stage)) +
   scale_shape_manual(values=c(19,1), name = "Life stage") +
   geom_point(alpha = 0.6) +
   theme_classic() +
   labs(x="Elongation", y="Flatness") +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  geom_abline(slope = coef(fe.fit)[["mean_elongation"]], 
+              intercept = coef(fe.fit)[["(Intercept)"]])
 
-summary(lm(mean_flatness~mean_elongation, data = species_stage_means))
+summary(fe.fit)
 
 
 #flatness vs. sphericity
+fs.fit <- lm(mean_flatness~mean_sphericity, data = species_stage_means)
+
 flat_sph <- ggplot(species_stage_means, aes(x = mean_sphericity, y = mean_flatness, shape = life_stage)) +
   scale_shape_manual(values=c(19,1), name = "Life stage") +
   geom_point(alpha = 0.6) +
   theme_classic() +
   labs(x="Sphericity", y="Flatness") +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  geom_abline(slope = coef(fs.fit)[["mean_sphericity"]], 
+              intercept = coef(fs.fit)[["(Intercept)"]])
 
-summary(lm(mean_flatness~mean_sphericity, data = species_stage_means))
+summary(fs.fit)
 
 #elongation vs. anisotropy
 elong_anis <- ggplot(species_stage_means, aes(x = mean_anisotropy, y = mean_elongation, shape = life_stage)) +
@@ -315,14 +327,19 @@ summary(lm(mean_elongation~mean_sphericity, data = species_stage_means))
 
 
 #sphericity vs. anisotropy
+
+sa.fit <- lm(mean_sphericity~mean_anisotropy, data = species_stage_means)
+
 sph_anis <- ggplot(species_stage_means, aes(x = mean_anisotropy, y = mean_sphericity, shape = life_stage)) +
   scale_shape_manual(values=c(19,1), name = "Life stage") +
   geom_point(alpha = 0.6) +
   theme_classic() +
   labs(x="Anisotropy", y="Sphericity") +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  geom_abline(slope = coef(sa.fit)[["mean_anisotropy"]], 
+              intercept = coef(sa.fit)[["(Intercept)"]])
 
-summary(lm(mean_sphericity~mean_anisotropy, data = species_stage_means))
+summary(sa.fit)
 
 #construct supplemental figure
 plots <- plot_grid(flat_anis, flat_elon, flat_sph, elong_anis, elong_sph, sph_anis,

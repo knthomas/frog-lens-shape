@@ -222,13 +222,13 @@ physignal(as.matrix(tad_phylo_means[,c("mean_anisotropy.tads","mean_elongation.t
 #phylogenetic signal of adult lens shape (all species of adults, n=118)
 physignal(as.matrix(adult_phylo_means[,c("mean_anisotropy.adults","mean_elongation.adults","mean_sphericity.adults")]), tree.adult, iter = 999, seed = NULL)
 
-#phylogenetic signal of the difference between tad and adult lens shape (n=44 species)
+#phylogenetic signal of the difference between tad and adult lens shape (n=45 species)
 physignal(as.matrix(both_phylo_means[,c("mean_anisotropy.diff","mean_elongation.diff","mean_sphericity.diff")]), tree.both, iter = 999, seed = NULL)
 
-#check phy signal for tadpoles in matched species only (n=44 species)
+#check phy signal for tadpoles in matched species only (n=45 species)
 physignal(as.matrix(both_phylo_means[,c("mean_anisotropy.tads","mean_elongation.tads","mean_sphericity.tads")]), tree.both, iter = 999, seed = NULL)
 
-#check phy signal for adults in matched species only (n=44 species)
+#check phy signal for adults in matched species only (n=45 species)
 physignal(as.matrix(both_phylo_means[,c("mean_anisotropy.adults","mean_elongation.adults","mean_sphericity.adults")]), tree.both, iter = 999, seed = NULL)
 
 ```
@@ -271,18 +271,6 @@ par(mfrow = c(1, 1))
 #view coefficients
 summary(aniso.pgls)
 
-#fit alternative model with lambda set to 1
-aniso.pgls2 <- pgls(mean_anisotropy.diff~env, data=geocaperdata, lambda=1)
-
-#check model assumptions
-par(mar = c(4,4,2,2))
-par(mfrow = c(2, 2))
-plot(aniso.pgls2)
-par(mfrow = c(1, 1))
-
-#view coefficients
-summary(aniso.pgls2)
-
 
 #pgls for sphericity----
 
@@ -298,29 +286,6 @@ par(mfrow = c(1, 1))
 #view coefficients
 summary(sphere.pgls)
 
-#fit model with lambda set to 1
-sphere.pgls2 <- pgls(mean_sphericity.diff~env, data=geocaperdata, lambda=1)
-
-#check model assumptions
-par(mar = c(4,4,2,2))
-par(mfrow = c(2, 2))
-plot(sphere.pgls2)
-par(mfrow = c(1, 1))
-
-#view coefficients
-summary(sphere.pgls2)
-
-#fit model with lambda set to 0
-sphere.pgls3 <- pgls(mean_sphericity.diff~env, data=geocaperdata, lambda=0.00001)
-
-#check model assumptions
-par(mar = c(4,4,2,2))
-par(mfrow = c(2, 2))
-plot(sphere.pgls3)
-par(mfrow = c(1, 1))
-
-#view coefficients
-summary(sphere.pgls3)
 
 #pgls for elongation----
 
@@ -335,18 +300,6 @@ par(mfrow = c(1, 1))
 
 #view coefficients
 summary(elong.pgls)
-
-#fit model again with lambda set to 1
-elong.pgls2 <- pgls(mean_elongation.diff~env,data=geocaperdata, lambda=1)
-
-#check model assumptions
-par(mar = c(4,4,2,2))
-par(mfrow = c(2, 2))
-plot(elong.pgls2)
-par(mfrow = c(1, 1))
-
-#view coefficients
-summary(elong.pgls2)
 ```
 
 #### Procrustes MANOVA
