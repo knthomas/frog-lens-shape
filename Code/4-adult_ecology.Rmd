@@ -1,7 +1,7 @@
 ---
 title: "Lens shape and relative size by adult ecology"
 author: "Amartya Mitra, Molly Womack, Katie Thomas"
-date: '2022-07-18'
+date: '2022-07-20'
 output:
   html_document:
     code_fold: show
@@ -576,7 +576,6 @@ anova(hab.eye.pgls)
 
 #view coefficients
 summary(hab.eye.pgls)
-
 ```
 To get pairwise comparisons across all habitats, we have to run with different states as comparison state. 
 
@@ -696,6 +695,7 @@ anova(act.eye.pgls)
 #view coefficients
 summary(act.eye.pgls)
 ```
+
 Alternative activity period analyses with diurnal + neither grouped together to increase statistical power (both have small sample sizes compared to nocturnal). 
 
 ```{r}
@@ -833,7 +833,7 @@ legend("bottomright", activPlot$groups, col=activPlot$colors, pch=activPlot$pch,
 #export panels 4A & S6A -----
 
 #figure 4A
-pdf(file = "../Outputs/Figures/Fig4A.pdf", width = 6.5,  height = 5, useDingbats=FALSE)
+pdf(file = "../Outputs/Figures/Fig4a.pdf", width = 6.5,  height = 5, useDingbats=FALSE)
 
 ecoPlot<-pca2d(eco.pca$x, group= Eco, shape = 16 , col =EcoColr, show.centroids = TRUE, radius =1.5)
 legend("bottomright", ecoPlot$groups, col=ecoPlot$colors, pch=ecoPlot$pch, box.lty=0)
@@ -842,7 +842,7 @@ dev.off()
 
 #figure S6A
 
-pdf(file = "../Outputs/Figures/FigS6A.pdf", width = 6.5,  height = 5, useDingbats=FALSE)
+pdf(file = "../Outputs/Figures/FigS6a.pdf", width = 6.5,  height = 5, useDingbats=FALSE)
 
 activPlot<-pca2d(activ.pca$x, group= activ, shape = 16 , col =activColr, show.centroids = TRUE, radius =1.5)
 legend("bottomright", c("diurnal", "nocturnal", "neither"), col=c("#FFB90F", "#8A2BE2", "#CD1076"), pch=16, box.lty=0)
@@ -891,12 +891,12 @@ sph_habs <- ggplot(adult_phylo_eco, aes(x=adult_ecology, y=mean_sphericity, fill
 elong_habs <- ggplot(adult_phylo_eco, aes(x=adult_ecology, y=mean_elongation, fill=adult_ecology)) + 
   geom_violin(trim=FALSE, alpha = 0.7)+
   scale_fill_manual(values = col_hab, name = "Adult habitat") +
-  labs(title=NULL,x="Habitat", y = "Elongation value")+
+  labs(title=NULL,x="Habit", y = "Elongation")+
   geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
   geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic()+
   ylim(c(0.8, 1)) +
-  geom_hline(data = lens_sh, aes(yintercept = mean_elongation, linetype = specimen_id)) +
+  geom_hline(data = lens_sh, aes(yintercept = mean_sphericity, linetype = specimen_id)) +
   scale_linetype_manual(values = c("dashed","dotted"),
                         breaks = c("Perfect sphere", "Lens_replica"),
                         labels= c("Perfect sphere","Lens replica"),
@@ -938,7 +938,7 @@ sph_act <- ggplot(adult_phylo_activ, aes(x=activity_period, y=mean_sphericity, f
 elong_act <- ggplot(adult_phylo_activ, aes(x=activity_period, y=mean_elongation, fill=activity_period)) + 
   geom_violin(trim=FALSE, alpha = 0.5)+
   scale_fill_manual(values = col_act, name = "Adult activity period") +
-  labs(title=NULL,x="Activity Period", y = "Elongation value")+
+  labs(title=NULL,x="Activity period", y = "Elongation")+
   geom_boxplot(width=0.15, fill="white", outlier.alpha = 0)+
   geom_jitter(shape = 19, size = 1, alpha = 0.5, position = position_jitter(0.1)) + 
   theme_classic() +
@@ -965,18 +965,12 @@ plots <- plot_grid(elong_habs + theme(legend.position = "none"),
            nrow = 1,
            rel_widths = c(1.8,1))
 
-#add legend
-plots2 <- plot_grid(plots, leg,
-                    align = 'vh',
-                    nrow = 2,
-                    rel_heights = c(1, 0.1))
-
 #print figure
-plots2
+plots
 
 #export figure
 pdf(file = "../Outputs/Figures/FigS5.pdf", width = 10,  height = 4)
-plots2
+plots
 dev.off()
 ```
 
