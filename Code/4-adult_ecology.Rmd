@@ -415,22 +415,9 @@ act.aniso.pgls <- pgls(mean_anisotropy.adults ~ activity_period,
                        data = adult.act.comp, 
                        lambda="ML")
 
-#check model assumptions
-par(mar = c(4,4,2,2))
-par(mfrow = c(2, 2))
-plot(act.aniso.pgls)
-par(mfrow = c(1, 1))
-
-#look at phy signal estmiate
-plot(pgls.profile(act.aniso.pgls, which="lambda"))
-
-#view main effects
-anova(act.aniso.pgls)
-
 #view coefficients
 summary(act.aniso.pgls)
 ```
-
 
 #### Sphericity
 
@@ -696,45 +683,6 @@ anova(act.eye.pgls)
 summary(act.eye.pgls)
 ```
 
-Alternative activity period analyses with diurnal + neither grouped together to increase statistical power (both have small sample sizes compared to nocturnal). 
-
-```{r}
-
-#combine diurnal and both into one category
-adult_eye_activ <- adult_eye_activ %>%
-  mutate(act_bin = recode_factor(activity_period, "nocturnal" = "nocturnal", "diurnal" = "non-nocturnal", "both"="non-nocturnal"))
-
-#view distribution of data
-table(adult_eye_activ$act_bin)
-
-
-#run PGLS using caper-----
-
-# pgls in caper of lens ~ eye 
-
-#make comparative object
-act.eye.comp.bin <- comparative.data(phy=tree.eye.activ, data=adult_eye_activ, names.col=genus_species, vcv=TRUE, na.omit=FALSE, warn.dropped=TRUE)
-
-#fit pgls model for lens vs. eye size
-act.eye.pgls.bin <- pgls(mean.lens.diameter ~ mean.eye.diameter + act_bin,
-                       data = act.eye.comp.bin, 
-                       lambda="ML")
-
-#check model assumptions
-par(mar = c(4,4,2,2))
-par(mfrow = c(2, 2))
-plot(act.eye.pgls.bin)
-par(mfrow = c(1, 1))
-
-#look at phy signal estmiate
-plot(pgls.profile(act.eye.pgls.bin, which="lambda"))
-
-#view main effects
-anova(act.eye.pgls.bin)
-
-#view coefficients
-summary(act.eye.pgls.bin)
-```
 
 # Figures
 
