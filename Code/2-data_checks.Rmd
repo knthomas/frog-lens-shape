@@ -169,7 +169,7 @@ plot
 
 ```{r, results="hide"}
 #export figure
-pdf(file = "../Outputs/Figures/Fig-supp-LR_lens_shape.pdf", width = 9,  height = 7)
+pdf(file = "../Outputs/Figures/FigS2.pdf", width = 9,  height = 7)
 plot
 dev.off()
 ```
@@ -353,7 +353,7 @@ plots <- plot_grid(flat_anis, flat_elon, flat_sph, elong_anis, elong_sph, sph_an
 plots
 
 #export figure
-pdf(file = "../Outputs/Figures/Fig-supp_shape_correlations.pdf", width = 10,  height = 12)
+pdf(file = "../Outputs/Figures/FigS3.pdf", width = 10,  height = 12)
 plots
 dev.off()
 ```
