@@ -58,7 +58,8 @@ Here, we remove an individual (BMNH1977.1533) from the dataset we will use for a
 
 #tidy lens data
 lens_data_tidy <- lens_data %>%
-  filter(specimen_id != "BMNH1977.1533")
+  filter(specimen_id != "BMNH1977.1533") %>%
+  mutate(activity_period = recode(activity_period, nocturnal = "nocturnal", diurnal = "non-nocturnal", both = "non-nocturnal"))
 
 #export tidy data
 write.csv(lens_data_tidy, file = "../Data/Tidy/lens_data_tidy.csv", row.names = FALSE)
