@@ -41,7 +41,7 @@ library(caper)
 library(tidyverse)
 ```
 
-Here, we examine whether adult lens size (relative to eye size) or shape are correlated with adult ecology (habitat or activity period). We do this across all adults sampled with available data (n = 118 species, with n = 80 for eye size data)
+Here, we examine whether adult lens size (relative to eye size) or shape are correlated with adult ecology (habitat or activity period). We do this across all adults sampled with available data (n = 121 species, with n = 81 for eye size data)
 
 
 # Import data
@@ -762,9 +762,9 @@ lens_sh <- specimen_means %>%
 
 ## Figure 4: Adult lens shape by ecology
 
-Part 1: PCA centroids for adult lens shape vs ecology (habitat and activity period)
+### Part 1: PCA centroids for adult lens shape vs ecology (habitat and activity period)
 
-```{r Figure 4ab}
+```{r Figure 4a}
 
 #Prep data
 
@@ -830,14 +830,19 @@ activPlot<-pca2d(activ.pca$x,
 
 legend("bottomright", activPlot$groups, col=activPlot$colors, pch=activPlot$pch, box.lty=0)
 
-#export panels A & B-----
+#export panels 4A & S6A -----
 
-#print graph
-pdf(file = "../Outputs/Figures/Fig4AB.pdf", width = 13,  height = 5, useDingbats=FALSE)
-par(mfrow=c(1,2))
+#figure 4A
+pdf(file = "../Outputs/Figures/Fig4A.pdf", width = 6.5,  height = 5, useDingbats=FALSE)
 
 ecoPlot<-pca2d(eco.pca$x, group= Eco, shape = 16 , col =EcoColr, show.centroids = TRUE, radius =1.5)
 legend("bottomright", ecoPlot$groups, col=ecoPlot$colors, pch=ecoPlot$pch, box.lty=0)
+
+dev.off()
+
+#figure S6A
+
+pdf(file = "../Outputs/Figures/FigS6A.pdf", width = 6.5,  height = 5, useDingbats=FALSE)
 
 activPlot<-pca2d(activ.pca$x, group= activ, shape = 16 , col =activColr, show.centroids = TRUE, radius =1.5)
 legend("bottomright", c("diurnal", "nocturnal", "neither"), col=c("#FFB90F", "#8A2BE2", "#CD1076"), pch=16, box.lty=0)
@@ -845,9 +850,9 @@ legend("bottomright", c("diurnal", "nocturnal", "neither"), col=c("#FFB90F", "#8
 dev.off()
 ```
 
-Part 2: Violin plots of adult lens shape across ecology (habitat and activity period)
+### Part 2: Violin plots of adult lens shape across ecology (habitat and activity period)
 
-```{r Figure 4cdef}
+```{r Figure 4bc}
 
 # Adult habitat ------
 
@@ -944,88 +949,11 @@ elong_act <- ggplot(adult_phylo_activ, aes(x=activity_period, y=mean_elongation,
                         labels= c("Perfect sphere","Lens replica"),
                         name = "Reference shapes")
  
+```
 
-# Construct main figure -----
+Make supplemental figure S5 - lens elongation across ecology states
 
-#make panels without lengends
-fig.c <- anis_habs + 
-  theme(legend.position = "none", 
-        axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        text = element_text(size = 16)) +
-  ylab("Anisotropy") +
-  scale_x_discrete(breaks =c ("fossorial", "aquatic", "semi-aquatic", "subfossorial", "ground-dwelling", "scansorial"),
-                   limits = c("fossorial", "aquatic", "semi-aquatic", "subfossorial", "ground-dwelling", "scansorial"),
-                   labels = c("foss.","aq.", "semiaq.", "subfoss.", "ground", "scans.")) +
-  geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic","subfossorial","ground-dwelling","scansorial"),"y" = c(0.5,0.5,0.5,0.5,0.5,0.5), "group" = c("a", "a", "b", "b","b","b")),
-            aes(y = y, label = group),
-            vjust = -2.2)
- 
- 
-fig.d <- anis_act + 
-  theme(legend.position = "none",
-        axis.title.x=element_blank(),
-        axis.text.x=element_blank(),
-        axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        text = element_text(size = 16)) +
-  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
-                   limits = c("diurnal","nocturnal","both"),
-                   labels = c("diurnal", "nocturnal", "other"))
-
-fig.e <- sph_habs + 
-  theme(legend.position = "none",
-        text = element_text(size = 16)) +
-  xlab("Habit") +
-  ylab("Sphericity") +
-  scale_x_discrete(breaks = c("fossorial","aquatic","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
-                   limits = c("fossorial","aquatic","semi-aquatic", "subfossorial","ground-dwelling","scansorial"),
-                   labels = c("foss.","aq.","semiaq.","subfoss.", "ground", "scans.") ) +
-  geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic","subfossorial","ground-dwelling","scansorial"),"y" = c(1,1,1,1,1,1), "group" = c("a", "a,b", "a,b,c", "b,c","c","c")),
-            aes(y = y, label = group),
-            vjust = -.5) +
-  theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
-  coord_cartesian(clip = "off")
-
-  
-fig.f <- sph_act + 
-  theme(legend.position = "none",
-        axis.title.y=element_blank(),
-        axis.text.y=element_blank(),
-        text = element_text(size = 16)) +
-  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
-                   limits = c("diurnal","nocturnal","both"),
-                   labels = c("diur.", "noct.", "neith.")) +
-  theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
-  coord_cartesian(clip = "off")
-
-leg <- get_legend(sph_act + theme(legend.position="bottom"))
-
-
-#make panels just with anisotropy and sphericity for habitat and activity period
-plots <- plot_grid(fig.c, fig.d, fig.e, fig.f,
-           align = 'vh', #align horizontally and vertically
-           axis = 'lb',
-           labels = c("C", "D", "E", "F"), #panel labels for figure
-           hjust = 0, #adjustment for panel labels
-           nrow = 2,
-           rel_widths = c(1.8,1))
-
-#add legend
-plots2 <- plot_grid(plots, leg,
-                    align = 'vh',
-                    nrow = 2,
-                    rel_heights = c(1, 0.1))
-
-#print figure
-plots2
-
-#export figure
-pdf(file = "../Outputs/Figures/Fig4cdef.pdf", width = 8,  height = 8)
-plots2
-dev.off()
-
-# Supplemental figure -----
+```{r}
 
 #make panels with elongation for habitat and activity period
 plots <- plot_grid(elong_habs + theme(legend.position = "none"), 
@@ -1047,15 +975,15 @@ plots2 <- plot_grid(plots, leg,
 plots2
 
 #export figure
-pdf(file = "../Outputs/Figures/Fig-supp-adultelong.pdf", width = 10,  height = 4)
+pdf(file = "../Outputs/Figures/FigS5.pdf", width = 10,  height = 4)
 plots2
 dev.off()
 ```
 
 
-## Figure 5: Violins of relative lens size by microhabitat (Panel A) and activity pattern (Panel B)
+### Part 3: Violins of relative lens size by microhabitat and activity pattern
 
-```{r Figure 5}
+```{r relative-lens}
 
 #### Habitat ####
 
@@ -1116,24 +1044,104 @@ gg_activ <- ggplot(adult_eye_activ2, aes(x=activity_period, y=pglsres.acteye, fi
 
 gg_activ 
 
-#Construct figure----
+```
 
-fig.a <- gg_eco + 
+Export panels B, C, D for figure 4
+
+```{r}
+
+#make panels ordered by mean value and with pairwise comparison results added
+
+fig.b <- anis_habs + 
   theme(legend.position = "none", 
+        axis.title.x=element_blank(),
         text = element_text(size = 16)) +
-  scale_x_discrete(breaks = c("aquatic", "semi-aquatic", "fossorial", "subfossorial", "ground-dwelling", "scansorial"),
-                   limits = c("aquatic","semi-aquatic", "fossorial", "subfossorial","ground-dwelling","scansorial"),
-                   labels = c("aq.","semiaq.","foss.","subfoss.", "ground", "scans.") ) +
+  ylab("Anisotropy") +
+  scale_x_discrete(breaks = c("aquatic", "fossorial", "scansorial", "semi-aquatic", "subfossorial", "ground-dwelling"),
+                   limits = c("aquatic", "fossorial", "scansorial", "semi-aquatic", "subfossorial", "ground-dwelling"),
+                   labels = c("aq.","foss.", "scans.", "semiaq.", "subfoss.", "ground")) +
+  geom_text(data = data.frame("adult_ecology" = c("aquatic", "fossorial", "scansorial", "semi-aquatic", "subfossorial", "ground-dwelling"),"y" = c(0.5,0.5,0.5,0.5,0.5,0.5), "group" = c("a", "a,b", "a,b,c", "b,c","c","c")),
+            aes(y = y, label = group),
+            vjust = -2.2)
+
+ 
+fig.c <- sph_habs + 
+  theme(legend.position = "none",
+        text = element_text(size = 16),
+        axis.title.x=element_blank()) +
   xlab("Habit") +
-  geom_text(data = data.frame("adult_ecology" = c("aquatic","semi-aquatic","fossorial","subfossorial","ground-dwelling","scansorial"),"y" = c(1,1,1,1,1,1), "group" = c("a", "a", "b", "b","b","b")),
+  ylab("Sphericity") +
+  scale_x_discrete(breaks = c("fossorial","aquatic","semi-aquatic", "subfossorial","scansorial", "ground-dwelling"),
+                   limits = c("fossorial","aquatic","semi-aquatic", "subfossorial","scansorial", "ground-dwelling"),
+                   labels = c("foss.","aq.","semiaq.","subfoss.", "scans.", "ground") ) +
+  geom_text(data = data.frame("adult_ecology" = c("fossorial","aquatic","semi-aquatic", "subfossorial","scansorial", "ground-dwelling"), "y" = c(1,1,1,1,1,1), "group" = c("a", "a", "a,b", "b,c","b,c","c")),
+            aes(y = y, label = group),
+            vjust = -.5) +
+  theme(plot.margin = margin(t = 18, unit = "pt")) + ## pad top region of the plot
+  coord_cartesian(clip = "off")
+
+fig.d <- gg_eco + 
+  theme(legend.position = "none", 
+        text = element_text(size = 16),
+        axis.title.x=element_blank()) +
+  scale_x_discrete(breaks = c("aquatic", "semi-aquatic", "ground-dwelling", "fossorial","scansorial",  "subfossorial"),
+                   limits = c("aquatic", "semi-aquatic", "ground-dwelling", "fossorial","scansorial",  "subfossorial"),
+                   labels = c("aq.", "semiaq.", "ground", "foss.", "scans.", "subfoss.") ) +
+  xlab("Habit") +
+  geom_text(data = data.frame("adult_ecology" = c("aquatic", "semi-aquatic", "ground-dwelling", "fossorial","scansorial",  "subfossorial"), "y" = c(1,1,1,1,1,1), "group" = c("a", "a,b", "c", "b,c","c","c")),
             aes(y = y, label = group),
             vjust = -2.6) +
+  theme(plot.margin = margin(t = 18, unit = "pt")) + ## pad top region of the plot
+  coord_cartesian(clip = "off")
+
+#Construct figure----
+
+plots <- plot_grid(NULL, fig.b, fig.c, fig.d,
+           align = 'vh', #align horizontally and vertically
+           axis = 'lb',
+           labels = c("A", "B", "C", "D"), #panel labels for figure
+           hjust = -.1, #adjustment for panel labels
+           nrow = 2,
+           rel_widths = c(1,1))
+
+#print plot
+plots
+
+#export figure
+pdf(file = "../Outputs/Figures/Fig4bcd.pdf", width = 12,  height = 8)
+plots
+dev.off()
+```
+
+
+Export panels B,C,D, for figure S6. 
+
+```{r}
+#make panels ordered by mean value and with pairwise comparison results added
+
+fig.b <- anis_act + 
+  theme(legend.position = "none",
+        axis.title.x=element_blank(),
+        text = element_text(size = 16)) +
+  ylab("Anisotropy") +
+  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
+                   limits = c("diurnal","nocturnal","both"),
+                   labels = c("diur.", "noct.", "neith."))
+
+fig.c <- sph_act + 
+  theme(legend.position = "none",
+        axis.title.x=element_blank(),
+        text = element_text(size = 16)) +
+  ylab("Sphericity") +
+  scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
+                   limits = c("diurnal","nocturnal","both"),
+                   labels = c("diur.", "noct.", "neith.")) +
   theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
   coord_cartesian(clip = "off")
-  
-  
-fig.b <- gg_activ + 
-  theme(legend.position = "none", 
+
+fig.d <- gg_activ + 
+  theme(legend.position = "none",
+        axis.title.x=element_blank(),
         text = element_text(size = 16)) +
   scale_x_discrete(breaks = c("diurnal","nocturnal","both"),
                  limits = c("diurnal","nocturnal","both"),
@@ -1141,22 +1149,27 @@ fig.b <- gg_activ +
   theme(plot.margin = margin(t = 10, unit = "pt")) + ## pad "t"op region of the plot
   coord_cartesian(clip = "off")
 
-plots <- plot_grid(fig.a, fig.b,
+#Construct figure----
+plots <- plot_grid(NULL, fig.b, fig.c, fig.d,
            align = 'vh', #align horizontally and vertically
            axis = 'lb',
-           labels = c("A", "B"), #panel labels for figure
+           labels = c("A", "B", "C", "D"), #panel labels for figure
            hjust = -.1, #adjustment for panel labels
-           nrow = 1,
-           rel_widths = c(1.8,1))
+           nrow = 2,
+           rel_widths = c(1,1))
 
 #print plot
 plots
 
 #export figure
-pdf(file = "../Outputs/Figures/Fig5.pdf", width = 8,  height = 4)
+pdf(file = "../Outputs/Figures/FigS6bcd.pdf", width = 12,  height = 8)
 plots
 dev.off()
 
-```
+#check means of states for ordering plots
+# means<-adult_eye_eco2 %>%
+#   group_by(adult_ecology) %>%
+#   summarise(mean_eye = mean(pglsres.habeye, na.rm=TRUE))
 
+```
 
