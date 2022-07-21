@@ -458,7 +458,7 @@ summary(act.elong.pgls)
 
 #### Adult habitat
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 
 #procD.pgls of adult lens shape (all 3 measures) by habitat
 procD<-procD.pgls(adult_phylo_eco[,c("mean_anisotropy.adults","mean_elongation.adults","mean_sphericity.adults")]~adult_ecology, tree.adult.eco, Cov = NULL, iter = 999,seed = NULL, int.first = FALSE, SS.type = NULL, effect.type = NULL, data = adult_phylo_eco, print.progress = TRUE)
@@ -468,7 +468,7 @@ summary(procD)
 
 #### Activity period
 
-```{r, eval=FALSE}
+```{r, eval=TRUE}
 #procD.pgls of adult eye shape (all 3 measures) by activity period
 
 procD<-procD.pgls(adult_phylo_activ[,c("mean_anisotropy.adults","mean_elongation.adults","mean_sphericity.adults")]~activity_period, tree.adult.activ, Cov = NULL, iter = 999,seed = NULL, int.first = FALSE, SS.type = NULL, effect.type = NULL, data = adult_phylo_activ, print.progress = TRUE)
