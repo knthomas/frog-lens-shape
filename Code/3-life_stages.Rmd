@@ -1,7 +1,7 @@
 ---
 title: "Lens shape in tadpoles vs. adults"
 author: "Amartya Mitra, Molly Womack, Katie Thomas"
-date: '2022-07-20'
+date: '2022-07-21'
 output:
   html_document:
     code_fold: show
@@ -110,12 +110,11 @@ t.test(mean_elongation~life_stage, data = species_stage_means)
 
 Here, we use a multivariate approach to test whether the three shape metrics together (sphericity, anisotropy, elongation) are associated with life stage (tadpole vs. adult)
 
-```{r procD all metrics, eval = FALSE}
+```{r procD all metrics, eval = TRUE}
 
-fit <- summary(
-  procD.lm(species_stage_means[,c("mean_anisotropy","mean_elongation","mean_sphericity")]~life_stage,iter = 999,seed = NULL,RRPP = TRUE, SS.type = NULL, int.first = FALSE, Cov = NULL, data = species_stage_means, print.progress = TRUE)
-  ) 
+fit <- procD.lm(species_stage_means[,c("mean_anisotropy","mean_elongation","mean_sphericity")]~life_stage,iter = 999,seed = NULL,RRPP = TRUE, SS.type = NULL, int.first = FALSE, Cov = NULL, data = species_stage_means, print.progress = TRUE)
 
+summary(fit)
 ```
 
 ## Q2 Differences in lens shape through ontogeny within species
@@ -304,7 +303,7 @@ summary(elong.pgls)
 
 #### Procrustes MANOVA
 
-```{r, eval = FALSE}
+```{r, eval = TRUE}
 
 #check adequate levels for testing
 table(both_phylo_means$env)
